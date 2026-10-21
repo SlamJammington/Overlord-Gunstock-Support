@@ -4,10 +4,11 @@
 #include <cmath>
 #include <optional>
 
-// Physical gunstock support. Both controllers are rigidly mounted on a stock,
-// so the line between them is the most stable aim reference. Two-hand weapons
-// point along that line, rotated by one calibrated offset. The rear controller
-// only supplies roll; neither controller's mounting angle steers the barrel.
+// Physical gunstock support. A rigid stock locks both controllers together, so
+// the rear controller's orientation fully describes the stock. Two-hand weapons
+// keep that orientation (plus one calibrated offset) while the front hand
+// supports them: neither the front hand's angle nor its position steers the
+// barrel, and grabbing the foregrip never swings the gun.
 // Header-only and disabled by default: offline tests keep ordinary aiming.
 namespace vr::gameplay::weapons::gunstock
 {
@@ -15,11 +16,12 @@ namespace vr::gameplay::weapons::gunstock
 	using spatial_math::vec;
 	using angles = std::array<float, 3>; // pitch, yaw, roll in degrees, for a right-hand rear grip
 
-	inline constexpr float max_offset_degrees = 90.f;
+	// A stock is held near the natural aim; a larger capture is a measurement error.
+	inline constexpr float max_offset_degrees = 45.f;
 	// Separation between the mounted controllers, in meters.
 	inline constexpr float acquire_min_meters = .10f, acquire_max_meters = 1.0f;
 	inline constexpr float retain_min_meters = .08f, retain_max_meters = 1.2f;
-	// The front controller must lie within this cone around the one-hand barrel.
+	// The front controller must lie within this cone around the barrel.
 	inline constexpr float acquire_cone_cosine = .5f;
 
 	struct configuration
@@ -56,30 +58,11 @@ namespace vr::gameplay::weapons::gunstock
 		    spatial_math::multiply(axis_angle({0, 0, 1}, yaw), axis_angle({0, 1, 0}, -degrees[0])),
 		    axis_angle({1, 0, 0}, roll)));
 	}
-	// Frame of the physical stock: forward along rear->front, up from the rear
-	// controller's gun-up axis. Rejects coincident hands and a degenerate roll.
-	inline std::optional<quat> stock_frame(quat rear_rotation, vec rear, vec front) noexcept
+	// Gun rotation for a stocked two-hand weapon, from the rear controller alone.
+	inline quat stocked_rotation(const configuration& config, quat rear_rotation, bool left_rear) noexcept
 	{
-		using namespace spatial_math;
-		const auto delta = sub(front, rear);
-		const float span = length(delta);
-		if (!std::isfinite(span) || span < .5f)
-			return std::nullopt;
-		const auto forward = scale(delta, 1 / span);
-		const auto reference = rotate(normalize(rear_rotation), {0, 0, 1});
-		auto up = sub(reference, scale(forward, dot(reference, forward)));
-		if (!std::isfinite(length(up)) || length(up) < .05f)
-			return std::nullopt;
-		up = unit(up);
-		return from_axis({forward, cross(up, forward), up});
-	}
-	inline std::optional<quat> aimed(const configuration& config, quat rear_rotation, vec rear, vec front,
-	                                 bool left_rear) noexcept
-	{
-		const auto frame = stock_frame(rear_rotation, rear, front);
-		if (!frame)
-			return std::nullopt;
-		return spatial_math::normalize(spatial_math::multiply(*frame, offset_rotation(config.offset, left_rear)));
+		return spatial_math::normalize(
+		    spatial_math::multiply(spatial_math::normalize(rear_rotation), offset_rotation(config.offset, left_rear)));
 	}
 	inline bool valid(angles degrees) noexcept
 	{
@@ -88,22 +71,21 @@ namespace vr::gameplay::weapons::gunstock
 				return false;
 		return true;
 	}
-	// Offset that turns the current stock frame into the player's level gaze.
+	// Offset that turns the rear controller's aim into the player's level gaze.
 	// The player sights a distant point along the stock, so gaze and barrel are
-	// parallel there. World up is +Z.
-	inline std::optional<angles> capture(quat rear_rotation, vec rear, vec front, vec head_forward,
-	                                     bool left_rear) noexcept
+	// parallel there. World up is +Z. Returns the raw angles even when they
+	// exceed the sanity limit, so the caller can report the rejection.
+	inline std::optional<angles> measure(quat rear_rotation, vec head_forward, bool left_rear) noexcept
 	{
 		using namespace spatial_math;
-		const auto frame = stock_frame(rear_rotation, rear, front);
-		if (!frame || !std::isfinite(length(head_forward)) || length(head_forward) < 1e-3f)
+		if (!std::isfinite(length(head_forward)) || length(head_forward) < 1e-3f)
 			return std::nullopt;
 		const auto look = unit(head_forward);
 		if (std::abs(look[2]) > .95f)
 			return std::nullopt;
 		const auto up = unit(sub(vec{0, 0, 1}, scale(look, look[2])));
 		const auto desired = from_axis({look, cross(up, look), up});
-		const auto offset = normalize(multiply(conjugate(*frame), desired));
+		const auto offset = normalize(multiply(conjugate(normalize(rear_rotation)), desired));
 		const auto x = rotate(offset, {1, 0, 0});
 		constexpr float degrees = 57.2957795130823208768f;
 		const float pitch = std::asin(std::clamp(x[2], -1.f, 1.f)) * degrees;
@@ -112,13 +94,28 @@ namespace vr::gameplay::weapons::gunstock
 		const auto y = rotate(normalize(multiply(conjugate(swing), offset)), {0, 1, 0});
 		const float roll = std::atan2(y[2], y[1]) * degrees;
 		angles result{pitch, left_rear ? -yaw : yaw, left_rear ? -roll : roll};
-		if (!valid(result))
+		for (float value : result)
+			if (!std::isfinite(value))
+				return std::nullopt;
+		return result;
+	}
+	inline std::optional<angles> capture(quat rear_rotation, vec head_forward, bool left_rear) noexcept
+	{
+		const auto result = measure(rear_rotation, head_forward, left_rear);
+		if (!result || !valid(*result))
 			return std::nullopt;
 		return result;
 	}
+	// Angle between two directions in degrees, for diagnostics.
+	inline float angle_between(vec a, vec b) noexcept
+	{
+		using namespace spatial_math;
+		const float c = std::clamp(dot(unit(a), unit(b)), -1.f, 1.f);
+		return std::acos(c) * 57.2957795130823208768f;
+	}
 	// The front controller can take the support grip anywhere ahead of the rear
 	// hand. A fixed stock spacing rarely matches each weapon's authored foregrip.
-	inline bool reaches(vec one_hand_forward, vec rear, vec front, float units_per_meter) noexcept
+	inline bool reaches(vec forward, vec rear, vec front, float units_per_meter) noexcept
 	{
 		using namespace spatial_math;
 		if (!std::isfinite(units_per_meter) || units_per_meter <= 0)
@@ -127,7 +124,7 @@ namespace vr::gameplay::weapons::gunstock
 		const float meters = length(delta) / units_per_meter;
 		if (!std::isfinite(meters) || meters < acquire_min_meters || meters > acquire_max_meters)
 			return false;
-		return dot(unit(delta), unit(one_hand_forward)) >= acquire_cone_cosine;
+		return dot(unit(delta), unit(forward)) >= acquire_cone_cosine;
 	}
 	inline bool retains(vec rear, vec front, float units_per_meter) noexcept
 	{

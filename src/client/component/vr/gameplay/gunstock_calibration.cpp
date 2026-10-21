@@ -31,7 +31,8 @@ namespace vr::gameplay::weapons::gunstock
 			return result;
 		}
 
-		// Shown in the headset's native HUD feed and mirrored to the console.
+		// Bold center print: the corner message feed is not drawn in the headset.
+		// Mirrored to the console; haptics confirm each step independently.
 		void notify(std::string text)
 		{
 			scheduler::once(
@@ -39,9 +40,13 @@ namespace vr::gameplay::weapons::gunstock
 			    {
 				    console::info("[VR gunstock] %s\n", text.data());
 				    if (game::CL_IsCgameInitialized())
-					    game::CG_GameMessage(0, text.data(), 0);
+					    game::CG_GameMessageBold(0, text.data());
 			    },
 			    scheduler::pipeline::main);
+		}
+		void pulse(const controller_input::frame& input, int hand, float seconds, float amplitude) noexcept
+		{
+			controller_haptics::request(hand, {seconds, 160.f, amplitude, input.reference_generation, input.sampled_at});
 		}
 
 		struct request
@@ -54,6 +59,14 @@ namespace vr::gameplay::weapons::gunstock
 		std::mutex request_mutex;
 		request pending{};
 		std::array<float, 3> last_capture{};
+		// Last attempt's geometry in degrees: rear aim vs gaze, stock line vs gaze, line vs rear aim.
+		struct diagnostic
+		{
+			bool valid{};
+			angles measured{};
+			std::array<float, 3> spread{};
+			int rear{-1};
+		} last_attempt{};
 		std::atomic_uint64_t captures{}, rejections{};
 
 		constexpr auto trigger_timeout = std::chrono::seconds(60);
@@ -83,15 +96,28 @@ namespace vr::gameplay::weapons::gunstock
 		                 spatial_math::vec head_forward)
 		{
 			const int rear = 1 - front;
-			const auto result = capture(targets[rear].rotation,
-			                            targets[rear].position,
-			                            targets[front].position,
-			                            head_forward,
-			                            rear == 0);
+			const auto aim = spatial_math::rotate(targets[rear].rotation, {1, 0, 0});
+			const auto line = spatial_math::sub(targets[front].position, targets[rear].position);
+			const auto measured = measure(targets[rear].rotation, head_forward, rear == 0);
+			last_attempt = {measured.has_value(),
+			                measured.value_or(angles{}),
+			                {angle_between(aim, head_forward), angle_between(line, head_forward), angle_between(line, aim)},
+			                rear};
+			console::info("[VR gunstock] capture rear=%s measured=%.1f/%.1f/%.1f aim_vs_gaze=%.1f "
+			              "line_vs_gaze=%.1f line_vs_aim=%.1f\n",
+			              rear == 0 ? "left" : "right", last_attempt.measured[0], last_attempt.measured[1],
+			              last_attempt.measured[2], last_attempt.spread[0], last_attempt.spread[1],
+			              last_attempt.spread[2]);
+			const auto result = capture(targets[rear].rotation, head_forward, rear == 0);
 			if (!result)
 			{
 				rejections.fetch_add(1, std::memory_order_relaxed);
-				notify("Gunstock calibration rejected: keep the stock level and look along it, then try again");
+				pulse(input, front, .03f, .3f);
+				const float needed = std::max({std::abs(last_attempt.measured[0]), std::abs(last_attempt.measured[1]),
+				                               std::abs(last_attempt.measured[2])});
+				notify(utils::string::va("Gunstock calibration rejected (needs %.0f deg, limit %.0f). Look along the "
+				                         "stock at a distant point and try again",
+				                         needed, max_offset_degrees));
 				return false;
 			}
 			const std::array<float, 3> values{
@@ -106,7 +132,7 @@ namespace vr::gameplay::weapons::gunstock
 			scheduler::once([assignment = std::move(assignment)] { command::execute(assignment); },
 			                scheduler::pipeline::main);
 			for (int h = 0; h < 2; ++h)
-				controller_haptics::request(h, {.08f, 160.f, .6f, input.reference_generation, input.sampled_at});
+				pulse(input, h, .1f, .8f);
 			notify(utils::string::va("Gunstock calibrated (%s shoulder): pitch %.1f, yaw %.1f, roll %.1f%s",
 			                         rear == 0 ? "left" : "right", values[0], values[1], values[2],
 			                         mode && mode->current.enabled ? "" : ". Enable vr_gunstockMode to use it"));
@@ -137,6 +163,9 @@ namespace vr::gameplay::weapons::gunstock
 		// Recentering or input loss restarts the trigger baseline; an old press never captures.
 		if (!pending.baseline || pending.reference != input.reference_generation)
 		{
+			if (!pending.baseline)
+				for (int h = 0; h < 2; ++h)
+					pulse(input, h, .03f, .4f); // Armed: one light tick on both hands.
 			pending.baseline = true;
 			pending.reference = input.reference_generation;
 			for (int h = 0; h < 2; ++h)
@@ -192,7 +221,7 @@ namespace vr::gameplay::weapons::gunstock
 			mode = dvars::register_bool(settings::gunstock_mode.name,
 			                            settings::gunstock_mode.default_value,
 			                            game::DVAR_FLAG_SAVED,
-			                            "Physical gunstock: two-hand weapons aim along the mounted controllers");
+			                            "Physical gunstock: two-hand weapons keep the rear controller's aim");
 			for (std::size_t i = 0; i < offset.size(); ++i)
 			{
 				const auto& field = settings::gunstock_offset[i];
@@ -239,15 +268,23 @@ namespace vr::gameplay::weapons::gunstock
 			             {
 				             const auto config = native_settings();
 				             bool armed{};
+				             diagnostic attempt{};
 				             {
 					             const std::lock_guard lock(request_mutex);
 					             armed = pending.armed;
+					             attempt = last_attempt;
 				             }
 				             console::info("[VR gunstock] enabled=%d offset=%.1f/%.1f/%.1f armed=%d captures=%llu "
 				                           "rejections=%llu last=%.1f/%.1f/%.1f\n",
 				                           config.enabled, config.offset[0], config.offset[1], config.offset[2], armed,
 				                           captures.load(), rejections.load(), last_capture[0], last_capture[1],
 				                           last_capture[2]);
+				             if (attempt.valid)
+					             console::info("[VR gunstock] last attempt rear=%s measured=%.1f/%.1f/%.1f "
+					                           "aim_vs_gaze=%.1f line_vs_gaze=%.1f line_vs_aim=%.1f\n",
+					                           attempt.rear == 0 ? "left" : "right", attempt.measured[0],
+					                           attempt.measured[1], attempt.measured[2], attempt.spread[0],
+					                           attempt.spread[1], attempt.spread[2]);
 			             });
 		}
 	};

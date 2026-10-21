@@ -47,6 +47,10 @@ namespace vr::gameplay::weapons
 			last_time_ = now;
 			const int rear = static_cast<int>(owner.rear), other = 1 - rear;
 			targets[rear].rotation=control_rotation(profile,rear,targets[rear].rotation);
+			// Stocked rifles use the offset in one- and two-hand holds alike, so grabbing never swings the gun.
+			if (profile.aiming == aim_rule::two_hand)
+				if (const auto stock = gunstock::settings(); stock.enabled)
+					targets[rear].rotation = gunstock::stocked_rotation(stock, targets[rear].rotation, rear == 0);
 			vec elbow_hint{};const vec* elbow=nullptr;
 			if(profile.forearm)
 			{

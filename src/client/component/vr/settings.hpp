@@ -131,9 +131,9 @@ namespace vr::settings
 	// Physical gunstock: two-hand weapons aim along the mounted controllers' line.
 	inline constexpr boolean_setting gunstock_mode{"vr_gunstockMode", false};
 	inline constexpr std::array gunstock_offset{
-	    number_setting{"vr_gunstockPitch", 0.f, -90.f, 90.f, .1f},
-	    number_setting{"vr_gunstockYaw", 0.f, -90.f, 90.f, .1f},
-	    number_setting{"vr_gunstockRoll", 0.f, -90.f, 90.f, .1f}};
+	    number_setting{"vr_gunstockPitch", 0.f, -45.f, 45.f, .1f},
+	    number_setting{"vr_gunstockYaw", 0.f, -45.f, 45.f, .1f},
+	    number_setting{"vr_gunstockRoll", 0.f, -45.f, 45.f, .1f}};
 	inline constexpr auto toggles = []
 	{
 		constexpr std::array gameplay{recording_mode,

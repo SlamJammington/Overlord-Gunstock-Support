@@ -17,30 +17,29 @@ namespace gunstock_tests
 		using namespace vr::spatial_math;
 		const auto same = [](vec a, vec b) { return length(sub(a, b)) < 1e-3f; };
 		const quat identity{0, 0, 0, 1};
-		const auto zero = gs::capture(identity, {0, 0, 0}, {20, 0, 0}, {1, 0, 0}, false);
+		const auto zero = gs::capture(identity, {1, 0, 0}, false);
 		check(zero && std::abs((*zero)[0]) < 1e-3f && std::abs((*zero)[1]) < 1e-3f && std::abs((*zero)[2]) < 1e-3f,
-		      "a level stock sighted straight ahead captures a zero gunstock offset");
-		const auto pitched = gs::capture(identity, {0, 0, 0}, {20, 0, -5}, {1, 0, 0}, false);
+		      "a rear controller already aimed at the level gaze captures a zero offset");
+		const auto pitched = gs::capture(identity, unit(vec{4, 0, 1}), false);
 		check(pitched && std::abs((*pitched)[0] - 14.036f) < .01f,
-		      "a stock line below the gaze captures a positive (upward) pitch offset");
+		      "a gaze above the rear controller's aim captures a positive (upward) pitch offset");
 		// Capture then aim reproduces the level gaze for either shoulder and a rolled rear controller.
 		for (const bool left : {false, true})
 		{
 			const quat rear_rotation =
-			    normalize(multiply(gs::axis_angle({1, 0, 0}, 25), gs::axis_angle({0, 0, 1}, left ? -10.f : 10.f)));
-			const vec rear{3, -2, 50}, front = add(rear, {18, left ? -3.f : 3.f, -4});
-			const auto gaze = unit(vec{1, left ? -.2f : .2f, .05f});
-			const auto offset = gs::capture(rear_rotation, rear, front, gaze, left);
+			    normalize(multiply(gs::axis_angle({1, 0, 0}, 20), gs::axis_angle({0, 0, 1}, left ? -10.f : 10.f)));
+			const auto gaze = unit(vec{1, left ? -.4f : .4f, .1f});
+			const auto offset = gs::capture(rear_rotation, gaze, left);
 			check(offset.has_value(), "a plausible shouldered pose captures an offset");
 			if (!offset)
 				continue;
-			const auto aimed = gs::aimed({true, *offset}, rear_rotation, rear, front, left);
-			check(aimed && same(rotate(*aimed, {1, 0, 0}), gaze) && std::abs(rotate(*aimed, {0, 1, 0})[2]) < 1e-3f,
+			const auto aimed = gs::stocked_rotation({true, *offset}, rear_rotation, left);
+			check(same(rotate(aimed, {1, 0, 0}), gaze) && std::abs(rotate(aimed, {0, 1, 0})[2]) < 1e-3f,
 			      "the calibrated stock aims along the captured gaze with a level horizon");
 		}
-		check(!gs::capture(identity, {0, 0, 0}, {0.1f, 0, 0}, {1, 0, 0}, false),
-		      "coincident controllers cannot define a stock line");
-		check(!gs::capture(identity, {0, 0, 0}, {20, 0, 0}, {0, 0, 1}, false), "looking straight up is rejected");
+		check(!gs::capture(identity, {0, 1, 0}, false), "an offset beyond the sanity limit is rejected");
+		check(gs::measure(identity, {0, 1, 0}, false).has_value(), "the rejected angles remain measurable");
+		check(!gs::capture(identity, {0, 0, 1}, false), "looking straight up is rejected");
 
 		// Acquisition ignores the authored foregrip distance but keeps a forward cone and spacing bounds.
 		constexpr float units = 39.37f;
@@ -61,12 +60,8 @@ namespace gunstock_tests
 		gs::set_settings_provider(enabled_settings);
 		const auto stocked = vr::gameplay::weapons::aimed_rotation(
 		    vr::gameplay::weapons::aim_rule::two_hand, identity, {0, 0, 0}, {0, 10, -2}, span, 1);
-		const auto expected = gs::aimed(enabled_settings(), identity, {0, 0, 0}, {0, 10, -2}, false);
-		check(expected && same(rotate(stocked, {1, 0, 0}), rotate(*expected, {1, 0, 0})),
-		      "gunstock mode replaces the authored span with the calibrated stock line");
-		const auto rear_only = vr::gameplay::weapons::aimed_rotation(
-		    vr::gameplay::weapons::aim_rule::rear_hand, identity, {0, 0, 0}, {0, 10, -2}, span, 1);
-		check(same(rotate(rear_only, {1, 0, 0}), {1, 0, 0}), "one-hand weapons ignore gunstock mode");
+		check(same(rotate(stocked, {1, 0, 0}), {1, 0, 0}),
+		      "gunstock mode keeps the rear controller's aim; the support hand never steers");
 		gs::set_settings_provider(nullptr);
 	}
 } // namespace gunstock_tests
