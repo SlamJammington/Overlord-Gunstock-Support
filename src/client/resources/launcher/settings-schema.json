@@ -307,6 +307,53 @@
     "row": "settings.angleOffsets"
   },
   {
+    "name": "vr_gunstockMode",
+    "category": "calibration",
+    "group": "settings.gunstock",
+    "label": "settings.gunstockMode",
+    "type": "toggle",
+    "description": "settings.gunstockModeHint"
+  },
+  {
+    "name": "vr_gunstockPitch",
+    "category": "calibration",
+    "group": "settings.gunstock",
+    "label": "settings.pitch",
+    "type": "number",
+    "unit": "unit.degrees",
+    "visibleWhen": [
+      "vr_gunstockMode",
+      true
+    ],
+    "row": "settings.gunstockOffsets"
+  },
+  {
+    "name": "vr_gunstockYaw",
+    "category": "calibration",
+    "group": "settings.gunstock",
+    "label": "settings.yaw",
+    "type": "number",
+    "unit": "unit.degrees",
+    "visibleWhen": [
+      "vr_gunstockMode",
+      true
+    ],
+    "row": "settings.gunstockOffsets"
+  },
+  {
+    "name": "vr_gunstockRoll",
+    "category": "calibration",
+    "group": "settings.gunstock",
+    "label": "settings.roll",
+    "type": "number",
+    "unit": "unit.degrees",
+    "visibleWhen": [
+      "vr_gunstockMode",
+      true
+    ],
+    "row": "settings.gunstockOffsets"
+  },
+  {
     "name": "vr_adsComfort",
     "category": "gameplay",
     "group": "settings.aiming",

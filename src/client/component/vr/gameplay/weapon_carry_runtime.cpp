@@ -344,7 +344,8 @@ namespace vr::gameplay::weapons::carry
 				                          rotation,
 				                          wrists[h].position,
 				                          wrists[1 - h].position,
-				                          hands::sub(out.supports[1 - h].position, local.position));
+				                          hands::sub(out.supports[1 - h].position, local.position),
+				                          h);
 			out.gun = {hands::sub(position, hands::rotate(rotation, local.position)), rotation};
 			out.support_available = true;
 			out.has_moving_control = false;
@@ -1104,8 +1105,10 @@ namespace vr::gameplay::weapons::carry
 					            hi::capability::aim},
 					           edge.event,
 					           20,
-					           hands::length(hands::sub(point, wrists[h].position)) /
-					               (body.units_per_meter * geometry.authored->acquire_meters),
+					           geometry.authored->aiming == aim_rule::two_hand && gunstock::settings().enabled
+					               ? 0.f
+					               : hands::length(hands::sub(point, wrists[h].position)) /
+					                     (body.units_per_meter * geometry.authored->acquire_meters),
 					           1,
 					           true,
 					           true});

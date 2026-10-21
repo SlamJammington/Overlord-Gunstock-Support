@@ -67,16 +67,26 @@ namespace vr::gameplay::weapons
 			const auto gun = solved[rig.gun];
 			const auto authored_span = sub(profile.wrists[other].position, offset);
 			const auto two_hand = aimed_rotation(profile.aiming, targets[rear].rotation,
-				targets[rear].position, targets[other].position, authored_span);
+				targets[rear].position, targets[other].position, authored_span, rear);
 			// Acquire at the one-hand pose, retain at the solved two-hand pose.
 			// Otherwise a correctly held rifle drops support when the rear wrist
 			// rotates, because the old one-hand anchor moves away from the foregrip.
-			const auto check_rotation = (lease_.engaged() || (authoritative_support && valid_hand(owner.support))) ? two_hand : gun.rotation;
+			const bool retaining = lease_.engaged() || (authoritative_support && valid_hand(owner.support));
+			const auto check_rotation = retaining ? two_hand : gun.rotation;
 			const auto anchor = add(solved[rig.arms[rear].wrist].position, rotate(check_rotation, authored_span));
 			float distance = length(sub(targets[other].position, anchor)) / units_per_meter;
 			if (profile.aiming == aim_rule::two_hand &&
 				length(sub(targets[other].position, targets[rear].position)) / units_per_meter < .08f)
 				distance = profile.release_meters + 1; // Coincident/crossing hands cannot define a stable rifle axis.
+			if (profile.aiming == aim_rule::two_hand && gunstock::settings().enabled)
+			{
+				// Stock spacing is fixed; accept the front controller anywhere ahead.
+				const bool held = retaining
+					? gunstock::retains(targets[rear].position, targets[other].position, units_per_meter)
+					: gunstock::reaches(rotate(gun.rotation, {1, 0, 0}), targets[rear].position,
+						targets[other].position, units_per_meter);
+				distance = held ? 0.f : profile.release_meters + 1;
+			}
 			const auto proposed = authoritative_support ? hand::none : lease_.consume(input, owner, assembly, gameplay && offhand_available, distance,
 													profile.acquire_meters, profile.release_meters, now);
 			const auto support=authoritative_support ? (valid_hand(owner.support) && gameplay && offhand_available ? owner.support : hand::none) : proposed;

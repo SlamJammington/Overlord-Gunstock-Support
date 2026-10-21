@@ -2,6 +2,7 @@
 #include "hands/pose_schema.hpp"
 #include "forearm_mount.hpp"
 #include "viewmodel_policy.hpp"
+#include "gunstock.hpp"
 #include <string_view>
 
 namespace vr::gameplay::weapons
@@ -93,9 +94,16 @@ namespace vr::gameplay::weapons
 	                                  hands::quat rear_rotation,
 	                                  hands::vec rear,
 	                                  hands::vec support,
-	                                  hands::vec authored_span) noexcept
+	                                  hands::vec authored_span,
+	                                  int rear_hand = -1) noexcept
 	{
 		using namespace hands;
+		// A physical gunstock fixes both controllers; aim along their line with
+		// the calibrated offset instead of each weapon's authored grip span.
+		if (rule == aim_rule::two_hand && (rear_hand == 0 || rear_hand == 1))
+			if (const auto config = gunstock::settings(); config.enabled)
+				if (const auto stocked = gunstock::aimed(config, rear_rotation, rear, support, rear_hand == 0))
+					return *stocked;
 		const auto delta = sub(support, rear);
 		if (rule != aim_rule::two_hand || !std::isfinite(length(delta)) || length(delta) < 0.5f ||
 		    !std::isfinite(length(authored_span)) || length(authored_span) < 0.5f)

@@ -16,6 +16,9 @@ namespace vr::gameplay::weapons
 		const float separation = hands::length(hands::sub(other, rear)) / units;
 		const float distance = hands::length(hands::sub(other, hands::pose_math::compose(gun, contact).position)) / units;
 		if (!std::isfinite(separation) || !std::isfinite(distance)) return support_retention::suspended;
+		// A physical stock holds the hands apart; only the grip button releases support.
+		if (p.support_enabled && p.aiming == aim_rule::two_hand && gunstock::settings().enabled)
+			return gunstock::retains(rear, other, units) ? support_retention::retained : support_retention::released;
 		if (!p.support_enabled || (p.aiming == aim_rule::two_hand && separation < .08f) || distance > p.release_meters)
 			return support_retention::released;
 		return support_retention::retained;

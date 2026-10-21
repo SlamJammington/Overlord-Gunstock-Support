@@ -20,6 +20,7 @@
 #include "game/dvars.hpp"
 #include "game/game.hpp"
 #include "../grip_presenter.hpp"
+#include "../gunstock_calibration.hpp"
 #include "native_rig.hpp"
 #include "../scripted_arms_runtime.hpp"
 #include "../campaign/cliffhanger/physical.hpp"
@@ -928,6 +929,13 @@ namespace vr::gameplay::hands
 				}
 				probe.target[hand] = targets[hand].position;
 			}
+			weapons::gunstock::observe(input,
+			                           targets,
+			                           {input.grip[0].valid && input.aim[0].valid,
+			                            input.grip[1].valid && input.aim[1].valid},
+			                           probe.head_position,
+			                           spatial.head_forward,
+			                           spatial.units_per_meter);
 			// Native callers request partial bones (muzzle queries, rendering, etc.).
 			// Complete the skeleton once before applying world-space IK; otherwise a
 			// later child calculation would inherit an already corrected parent twice.

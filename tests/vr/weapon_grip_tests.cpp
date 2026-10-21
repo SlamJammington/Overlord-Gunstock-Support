@@ -63,6 +63,7 @@ using vr::hand;
 #include "shield_tests.hpp"
 #include "marine_sniper_hand_tests.hpp"
 #include "trigger_discipline_tests.hpp"
+#include "gunstock_tests.hpp"
 
 int main()
 {
@@ -86,6 +87,7 @@ int main()
 	part_hand_transition_tests::run(check);
 	ejection_scatter_tests::run(check);
 	trigger_discipline_tests::run(check);
+	gunstock_tests::run(check);
 	reload_attachment_tests::run(check);
 	{
 		using namespace recoil;

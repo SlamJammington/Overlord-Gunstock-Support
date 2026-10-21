@@ -59,7 +59,9 @@ namespace vr::gameplay::weapons::lever
 		// hand sideways. Weapon scale and tracked controller positions stay fixed.
 		const auto moving=compose(inverse(offset),control);
 		const auto rear=compose(base,control).position,front=compose(base,*support).position;
-		gun.rotation=aimed_rotation(aim_rule::two_hand,gun.rotation,rear,front,sub(support->position,moving.position));
+		// A physical stock already aimed the base; keep that line through the lever cycle.
+		gun.rotation=gunstock::settings().enabled?base.rotation:
+			aimed_rotation(aim_rule::two_hand,gun.rotation,rear,front,sub(support->position,moving.position));
 		gun.position=sub(rear,rotate(gun.rotation,moving.position));return gun;
 	}
 }

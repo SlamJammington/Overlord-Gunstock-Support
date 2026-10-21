@@ -128,6 +128,12 @@ namespace vr::settings
 	inline constexpr boolean_setting ads_sprint{"vr_adsSprint", true};
 	inline constexpr boolean_setting exo_punch{"vr_exoPunch", false};
 	inline constexpr boolean_setting hei_round{"vr_heiRound", false};
+	// Physical gunstock: two-hand weapons aim along the mounted controllers' line.
+	inline constexpr boolean_setting gunstock_mode{"vr_gunstockMode", false};
+	inline constexpr std::array gunstock_offset{
+	    number_setting{"vr_gunstockPitch", 0.f, -90.f, 90.f, .1f},
+	    number_setting{"vr_gunstockYaw", 0.f, -90.f, 90.f, .1f},
+	    number_setting{"vr_gunstockRoll", 0.f, -90.f, 90.f, .1f}};
 	inline constexpr auto toggles = []
 	{
 		constexpr std::array gameplay{recording_mode,
@@ -146,6 +152,7 @@ namespace vr::settings
 		                              ads_sprint,
 		                              exo_punch,
 		                              hei_round,
+		                              gunstock_mode,
 		                              boolean_setting{disable_lens_flare, false},
 		                              boolean_setting{camera_bob, true},
 		                              boolean_setting{recoil, true},
@@ -233,5 +240,8 @@ namespace vr::settings
 	                                    hand_roll,
 	                                    stabilization_strengths[0],
 	                                    stabilization_strengths[1],
-	                                    stabilization_strengths[2]};
+	                                    stabilization_strengths[2],
+	                                    gunstock_offset[0],
+	                                    gunstock_offset[1],
+	                                    gunstock_offset[2]};
 }

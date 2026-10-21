@@ -33,6 +33,10 @@ namespace vr::gameplay::weapons::carry
 		const auto separation = hands::length(hands::sub(other, rear)) / units;
 		if (!std::isfinite(separation) || (p.aiming == aim_rule::two_hand && separation < .08f))
 			return false;
+		// Mounted controllers keep one spacing for every weapon; take support
+		// anywhere ahead of the rear hand rather than at the authored foregrip.
+		if (p.aiming == aim_rule::two_hand && gunstock::settings().enabled)
+			return gunstock::reaches(hands::rotate(gun.rotation, {1, 0, 0}), rear, other, units);
 		const auto contact = hands::add(gun.position, hands::rotate(gun.rotation, local.position));
 		const auto distance = hands::length(hands::sub(other, contact)) / units;
 		return std::isfinite(distance) && distance <= p.acquire_meters;
