@@ -27,6 +27,13 @@ left, tilts up and rolls the right side down. Values are stored for a
 right-shoulder stock; a left-hand rear grip mirrors yaw and roll. Each value
 is limited to 45 degrees; a larger capture is treated as a measurement error.
 
+`vr_gunstockOffsetRight`, `vr_gunstockOffsetUp` and `vr_gunstockOffsetForward`
+translate a stocked gun along its own axes, in meters (limit 0.2). Right
+mirrors for a left-shoulder stock. Headset testing with a right-shoulder stock
+lined the sights up with the left eye; a few centimeters of Right moves them
+to the shooting eye. The render pose and the carry pose (muzzle data) apply
+the same translation.
+
 An earlier trial aimed along the line between the two controllers. Headset
 testing captured a 87.7-degree yaw from that line and swung the gun when the
 front hand grabbed, while the rear controller alone was already aligned.
@@ -39,8 +46,10 @@ geometry can be examined, but it no longer affects aim.
 stock, look along it at a distant point and pull the front-hand trigger. The
 offset that turns the rear controller's aim into the level gaze is saved to `vr_gunstockPitch`,
 `vr_gunstockYaw` and `vr_gunstockRoll` (degrees, rounded to 0.1), both
-controllers pulse, and the result appears as a bold center message and in the
-console with diagnostic angles. A rejected capture gives one weak pulse on the
+controllers pulse, and the result appears on a head-locked panel about 1.2 m
+ahead (drawn with the weapon HUD layer, so Hide HUD also hides it) and in the
+console with diagnostic angles. The native message feeds are not drawn in the
+headset. A rejected capture gives one weak pulse on the
 front hand.
 
 - `vr_gunstockCalibrate <seconds>` captures after a countdown instead of a
@@ -48,7 +57,7 @@ front hand.
 - A rear-hand trigger pull is ignored with a prompt. Recentering re-arms the
   trigger baseline, so an earlier press never captures.
 - A trigger request expires after 60 seconds; `vr_gunstockCancel` cancels.
-- `vr_gunstockReset` zeroes the offset. `vr_gunstock_status` prints the state.
+- `vr_gunstockReset` zeroes the angle and position offsets. `vr_gunstock_status` prints the state.
 
 The gaze and barrel are parallel only for a distant point, so sight a target
 well beyond arm's length.

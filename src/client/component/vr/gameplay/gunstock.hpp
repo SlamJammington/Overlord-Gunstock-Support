@@ -24,10 +24,13 @@ namespace vr::gameplay::weapons::gunstock
 	// The front controller must lie within this cone around the barrel.
 	inline constexpr float acquire_cone_cosine = .5f;
 
+	// Gun translation limit in meters, matching the launcher setting.
+	inline constexpr float max_shift_meters = .2f;
 	struct configuration
 	{
 		bool enabled{};
 		angles offset{};
+		std::array<float, 3> shift{}; // meters along the gun's right, up and forward axes (right shoulder)
 	};
 	using settings_provider = configuration (*)() noexcept;
 	inline std::atomic<settings_provider> provider{nullptr};
@@ -63,6 +66,21 @@ namespace vr::gameplay::weapons::gunstock
 	{
 		return spatial_math::normalize(
 		    spatial_math::multiply(spatial_math::normalize(rear_rotation), offset_rotation(config.offset, left_rear)));
+	}
+	// World displacement of a stocked gun. Right mirrors for a left-shoulder stock
+	// so a positive value always moves the gun toward the shooting eye's side.
+	inline vec stocked_shift(const configuration& config, quat gun_rotation, bool left_rear,
+	                         float units_per_meter) noexcept
+	{
+		using namespace spatial_math;
+		if (!std::isfinite(units_per_meter) || units_per_meter <= 0)
+			return {};
+		for (float x : config.shift)
+			if (!std::isfinite(x) || std::abs(x) > max_shift_meters)
+				return {};
+		// Gun-local +Y is left.
+		const vec local{config.shift[2], left_rear ? config.shift[0] : -config.shift[0], config.shift[1]};
+		return scale(rotate(normalize(gun_rotation), local), units_per_meter);
 	}
 	inline bool valid(angles degrees) noexcept
 	{

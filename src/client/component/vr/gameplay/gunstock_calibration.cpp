@@ -1,7 +1,11 @@
 #include <std_include.hpp>
 #include "gunstock_calibration.hpp"
+#include "gunstock_prompt.hpp"
 #include "gunstock.hpp"
 #include "../controller_haptics.hpp"
+#include "../head_pose_bridge.hpp"
+#include "../overlay_text_texture.hpp"
+#include "../spatial_panel_renderer.hpp"
 #include "../settings.hpp"
 #include "component/command.hpp"
 #include "component/console.hpp"
@@ -17,32 +21,64 @@ namespace vr::gameplay::weapons::gunstock
 	{
 		using clock = controller_input::clock;
 		game::dvar_t* mode{};
-		std::array<game::dvar_t*, 3> offset{};
+		std::array<game::dvar_t*, 3> offset{}, shift{};
 
 		configuration native_settings() noexcept
 		{
 			configuration result{};
 			result.enabled = mode && mode->current.enabled;
 			for (std::size_t i = 0; i < offset.size(); ++i)
+			{
 				if (offset[i])
 					result.offset[i] = offset[i]->current.value;
+				if (shift[i])
+					result.shift[i] = shift[i]->current.value;
+			}
 			if (!valid(result.offset))
 				result.offset = {};
 			return result;
 		}
 
-		// Bold center print: the corner message feed is not drawn in the headset.
-		// Mirrored to the console; haptics confirm each step independently.
-		void notify(std::string text)
+		// Head-locked prompt text. The native message feeds are not drawn in the
+		// headset, so the eye composition draws this panel itself.
+		std::mutex prompt_mutex;
+		std::string prompt_text;
+		clock::time_point prompt_until{};
+
+		void notify(std::string text, std::chrono::seconds duration = std::chrono::seconds(6))
 		{
-			scheduler::once(
-			    [text = std::move(text)]
-			    {
-				    console::info("[VR gunstock] %s\n", text.data());
-				    if (game::CL_IsCgameInitialized())
-					    game::CG_GameMessageBold(0, text.data());
-			    },
-			    scheduler::pipeline::main);
+			{
+				const std::lock_guard lock(prompt_mutex);
+				prompt_text = text;
+				prompt_until = clock::now() + duration;
+			}
+			scheduler::once([text = std::move(text)] { console::info("[VR gunstock] %s\n", text.data()); },
+			                scheduler::pipeline::main);
+		}
+
+		// Greedy word wrap; each line stays well inside the text texture limit.
+		std::vector<std::string> wrap(const std::string& text, std::size_t width, std::size_t max_lines)
+		{
+			std::vector<std::string> lines;
+			std::string line;
+			std::size_t start = 0;
+			while (start < text.size() && lines.size() < max_lines)
+			{
+				auto end = text.find(' ', start);
+				if (end == std::string::npos)
+					end = text.size();
+				const auto word = text.substr(start, std::min(end - start, width));
+				if (!line.empty() && line.size() + 1 + word.size() > width)
+				{
+					lines.push_back(line);
+					line.clear();
+				}
+				line += line.empty() ? word : " " + word;
+				start = end + 1;
+			}
+			if (!line.empty() && lines.size() < max_lines)
+				lines.push_back(line);
+			return lines;
 		}
 		void pulse(const controller_input::frame& input, int hand, float seconds, float amplitude) noexcept
 		{
@@ -214,6 +250,86 @@ namespace vr::gameplay::weapons::gunstock
 		}
 	}
 
+	void present_prompt(const eye_composition::event& event,
+	                    ID3D11DeviceContext* context,
+	                    ID3D11ShaderResourceView* background,
+	                    ID3D11RenderTargetView* output) noexcept
+	{
+		constexpr std::size_t max_lines = 3;
+		thread_local std::array<overlay_text_texture, max_lines> lines;
+		thread_local spatial_panel::renderer renderer;
+		struct prepared_pair
+		{
+			std::uint64_t pair{}, publication{};
+			std::size_t count{};
+			std::array<std::array<spatial_panel::projected_quad, 2>, max_lines> corners{};
+		};
+		thread_local prepared_pair prepared;
+		if (event.eye > 1 || !context)
+			return;
+		if (event.eye == 0)
+		{
+			prepared = {};
+			prepared.pair = event.pair_id;
+			prepared.publication = event.views.eyes[0].publication;
+			std::string text;
+			{
+				const std::lock_guard lock(prompt_mutex);
+				if (clock::now() < prompt_until)
+					text = prompt_text;
+			}
+			head_pose_bridge::spatial_frame spatial{};
+			if (text.empty() || !event.model_origins.valid || !head_pose_bridge::get_spatial_frame(spatial) ||
+			    !std::isfinite(spatial.units_per_meter) || spatial.units_per_meter <= 0)
+				return;
+			const float units = spatial.units_per_meter;
+			// The pair's own camera: origin, forward, left, up rows.
+			const auto& camera = event.views.natural_camera;
+			spatial_panel::vec3 origin{}, forward{}, right{}, up{};
+			for (unsigned i = 0; i < 3; ++i)
+			{
+				origin[i] = camera[i];
+				forward[i] = camera[3 + i];
+				right[i] = -camera[6 + i];
+				up[i] = camera[9 + i];
+			}
+			Microsoft::WRL::ComPtr<ID3D11Device> device;
+			context->GetDevice(&device);
+			const auto wrapped = wrap(text, 52, max_lines);
+			const float height = .028f * units, gap = .3f * height;
+			for (std::size_t n = 0; n < wrapped.size(); ++n)
+			{
+				if (!lines[n].ensure_utf8(device.Get(), wrapped[n], 40, true) || !lines[n].height())
+					return;
+				// About 1.2 m ahead and slightly below eye level.
+				const float lift = (float(wrapped.size() - 1) * .5f - float(n)) * (height + gap) - .12f * units;
+				spatial_panel::vec3 center{};
+				for (unsigned i = 0; i < 3; ++i)
+					center[i] = origin[i] + forward[i] * 1.2f * units + up[i] * lift;
+				spatial_panel::quad quad{};
+				if (!spatial_panel::billboard(center, right, up,
+				                              height * float(lines[n].width()) / float(lines[n].height()), height, quad))
+					return;
+				for (unsigned eye = 0; eye < 2; ++eye)
+				{
+					spatial_panel::matrix matrix{};
+					std::memcpy(matrix.data(),
+					            event.views.eyes[eye].bytes.data() + engine_stereo_view::h2_current_view_projection_offset,
+					            sizeof(matrix));
+					if (!spatial_panel::project(quad, event.model_origins.eyes[eye], matrix, units * .12f,
+					                            prepared.corners[n][eye]))
+						return;
+				}
+			}
+			prepared.count = wrapped.size();
+		}
+		if (prepared.pair != event.pair_id || prepared.publication != event.views.eyes[0].publication)
+			return;
+		for (std::size_t n = 0; n < prepared.count; ++n)
+			(void)renderer.draw(context, background, lines[n].view(), output, prepared.corners[n][event.eye],
+			                    event.width, event.height, 0, 0);
+	}
+
 	class component final : public component_interface
 	{
 		void post_unpack() override
@@ -231,6 +347,13 @@ namespace vr::gameplay::weapons::gunstock
 				                                  field.max,
 				                                  game::DVAR_FLAG_SAVED,
 				                                  "Gunstock aim offset in degrees, for a right-shoulder stock");
+				const auto& moved = settings::gunstock_shift[i];
+				shift[i] = dvars::register_float(moved.name,
+				                                 moved.default_value,
+				                                 moved.min,
+				                                 moved.max,
+				                                 game::DVAR_FLAG_SAVED,
+				                                 "Gunstock gun position offset in meters (right/up/forward)");
 			}
 			set_settings_provider(native_settings);
 			command::add("vr_gunstockCalibrate",
@@ -244,7 +367,8 @@ namespace vr::gameplay::weapons::gunstock
 				                                            "at a distant point. Capturing in %.0f seconds",
 				                                            seconds)
 				                        : "Gunstock calibration: shoulder the stock, look along it at a distant point, "
-				                          "then pull the FRONT hand trigger");
+				                          "then pull the FRONT hand trigger",
+				                    seconds > 0 ? std::chrono::seconds(int(seconds) + 1) : trigger_timeout);
 			             });
 			command::add("vr_gunstockCancel",
 			             []
@@ -259,9 +383,11 @@ namespace vr::gameplay::weapons::gunstock
 			             []
 			             {
 				             const auto& names = settings::gunstock_offset;
+				             const auto& moved = settings::gunstock_shift;
 				             command::execute(utils::string::va(
-				                 "seta %s 0; seta %s 0; seta %s 0", names[0].name, names[1].name, names[2].name));
-				             notify("Gunstock offset reset to zero");
+				                 "seta %s 0; seta %s 0; seta %s 0; seta %s 0; seta %s 0; seta %s 0", names[0].name,
+				                 names[1].name, names[2].name, moved[0].name, moved[1].name, moved[2].name));
+				             notify("Gunstock angle and position offsets reset to zero");
 			             });
 			command::add("vr_gunstock_status",
 			             []
@@ -274,9 +400,10 @@ namespace vr::gameplay::weapons::gunstock
 					             armed = pending.armed;
 					             attempt = last_attempt;
 				             }
-				             console::info("[VR gunstock] enabled=%d offset=%.1f/%.1f/%.1f armed=%d captures=%llu "
-				                           "rejections=%llu last=%.1f/%.1f/%.1f\n",
-				                           config.enabled, config.offset[0], config.offset[1], config.offset[2], armed,
+				             console::info("[VR gunstock] enabled=%d offset=%.1f/%.1f/%.1f shift=%.3f/%.3f/%.3f armed=%d "
+				                           "captures=%llu rejections=%llu last=%.1f/%.1f/%.1f\n",
+				                           config.enabled, config.offset[0], config.offset[1], config.offset[2],
+				                           config.shift[0], config.shift[1], config.shift[2], armed,
 				                           captures.load(), rejections.load(), last_capture[0], last_capture[1],
 				                           last_capture[2]);
 				             if (attempt.valid)

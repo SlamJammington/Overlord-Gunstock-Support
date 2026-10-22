@@ -354,6 +354,45 @@
     "row": "settings.gunstockOffsets"
   },
   {
+    "name": "vr_gunstockOffsetRight",
+    "category": "calibration",
+    "group": "settings.gunstock",
+    "label": "settings.rightward",
+    "type": "number",
+    "unit": "unit.meters",
+    "visibleWhen": [
+      "vr_gunstockMode",
+      true
+    ],
+    "row": "settings.gunstockPosition"
+  },
+  {
+    "name": "vr_gunstockOffsetUp",
+    "category": "calibration",
+    "group": "settings.gunstock",
+    "label": "settings.upward",
+    "type": "number",
+    "unit": "unit.meters",
+    "visibleWhen": [
+      "vr_gunstockMode",
+      true
+    ],
+    "row": "settings.gunstockPosition"
+  },
+  {
+    "name": "vr_gunstockOffsetForward",
+    "category": "calibration",
+    "group": "settings.gunstock",
+    "label": "settings.forward",
+    "type": "number",
+    "unit": "unit.meters",
+    "visibleWhen": [
+      "vr_gunstockMode",
+      true
+    ],
+    "row": "settings.gunstockPosition"
+  },
+  {
     "name": "vr_adsComfort",
     "category": "gameplay",
     "group": "settings.aiming",

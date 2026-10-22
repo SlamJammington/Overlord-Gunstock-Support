@@ -37,6 +37,17 @@ namespace gunstock_tests
 			check(same(rotate(aimed, {1, 0, 0}), gaze) && std::abs(rotate(aimed, {0, 1, 0})[2]) < 1e-3f,
 			      "the calibrated stock aims along the captured gaze with a level horizon");
 		}
+		{
+			gs::configuration moved{true, {}, {.03f, .01f, -.02f}};
+			const quat facing_left = gs::axis_angle({0, 0, 1}, 90); // gun +X points world +Y
+			// Facing world +Y, the gun's right is world +X.
+			check(same(gs::stocked_shift(moved, facing_left, false, 100), {3, -2, 1}),
+			      "a right-shoulder shift moves the gun right, up and back in its own frame");
+			check(same(gs::stocked_shift(moved, facing_left, true, 100), {-3, -2, 1}),
+			      "a left-shoulder stock mirrors the sideways shift");
+			moved.shift[0] = .5f;
+			check(same(gs::stocked_shift(moved, identity, false, 100), {0, 0, 0}), "an out-of-range shift is ignored");
+		}
 		check(!gs::capture(identity, {0, 1, 0}, false), "an offset beyond the sanity limit is rejected");
 		check(gs::measure(identity, {0, 1, 0}, false).has_value(), "the rejected angles remain measurable");
 		check(!gs::capture(identity, {0, 0, 1}, false), "looking straight up is rejected");

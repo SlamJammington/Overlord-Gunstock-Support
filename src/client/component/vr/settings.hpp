@@ -134,6 +134,13 @@ namespace vr::settings
 	    number_setting{"vr_gunstockPitch", 0.f, -45.f, 45.f, .1f},
 	    number_setting{"vr_gunstockYaw", 0.f, -45.f, 45.f, .1f},
 	    number_setting{"vr_gunstockRoll", 0.f, -45.f, 45.f, .1f}};
+	// Gun translation in meters along its own right/up/forward axes, for a
+	// right-shoulder stock; the left shoulder mirrors right.
+	inline constexpr float max_gunstock_shift = .2f;
+	inline constexpr std::array gunstock_shift{
+	    number_setting{"vr_gunstockOffsetRight", 0.f, -max_gunstock_shift, max_gunstock_shift, .005f},
+	    number_setting{"vr_gunstockOffsetUp", 0.f, -max_gunstock_shift, max_gunstock_shift, .005f},
+	    number_setting{"vr_gunstockOffsetForward", 0.f, -max_gunstock_shift, max_gunstock_shift, .005f}};
 	inline constexpr auto toggles = []
 	{
 		constexpr std::array gameplay{recording_mode,
@@ -243,5 +250,8 @@ namespace vr::settings
 	                                    stabilization_strengths[2],
 	                                    gunstock_offset[0],
 	                                    gunstock_offset[1],
-	                                    gunstock_offset[2]};
+	                                    gunstock_offset[2],
+	                                    gunstock_shift[0],
+	                                    gunstock_shift[1],
+	                                    gunstock_shift[2]};
 }

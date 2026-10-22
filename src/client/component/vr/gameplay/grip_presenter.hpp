@@ -50,7 +50,11 @@ namespace vr::gameplay::weapons
 			// Stocked rifles use the offset in one- and two-hand holds alike, so grabbing never swings the gun.
 			if (profile.aiming == aim_rule::two_hand)
 				if (const auto stock = gunstock::settings(); stock.enabled)
+				{
 					targets[rear].rotation = gunstock::stocked_rotation(stock, targets[rear].rotation, rear == 0);
+					targets[rear].position = add(targets[rear].position,
+						gunstock::stocked_shift(stock, targets[rear].rotation, rear == 0, units_per_meter));
+				}
 			vec elbow_hint{};const vec* elbow=nullptr;
 			if(profile.forearm)
 			{

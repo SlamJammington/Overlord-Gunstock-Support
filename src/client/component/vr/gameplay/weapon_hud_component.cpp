@@ -11,6 +11,7 @@
 #include "weapon_render_pose.hpp"
 #include "weapon_interaction.hpp"
 #include "weapon_carry_runtime.hpp"
+#include "gunstock_prompt.hpp"
 #include "weapons/m9/hud.hpp"
 #include "../eye_composition.hpp"
 #include "../native_hud_capture.hpp"
@@ -354,6 +355,8 @@ namespace vr::gameplay::weapon_hud
 			{
 				if (event.eye > 1)
 					return;
+				// Calibration prompts are independent of the weapon HUD's visibility.
+				weapons::gunstock::present_prompt(event, context, background, destination);
 				input_state input;
 				if (event.eye == 0)
 				{

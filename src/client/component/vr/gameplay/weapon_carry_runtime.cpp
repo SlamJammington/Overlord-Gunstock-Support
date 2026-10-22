@@ -313,10 +313,17 @@ namespace vr::gameplay::weapons::carry
 			rotation = hands::normalize(hands::multiply(
 			    rotation,
 			    support_basis(v.owner, input.reference_generation).value_or(out.control_rotations[h])));
+			auto position = wrists[h].position;
 			if (valid_hand(v.owner.rear) && out.authored && out.authored->aiming == aim_rule::two_hand)
 				if (const auto stock = gunstock::settings(); stock.enabled)
+				{
 					rotation = gunstock::stocked_rotation(stock, rotation, h == 0);
-			auto position = wrists[h].position;
+					head_pose_bridge::spatial_frame scale_frame;
+					if (head_pose_bridge::get_spatial_frame(scale_frame))
+						position = hands::add(
+						    position,
+						    gunstock::stocked_shift(stock, rotation, h == 0, scale_frame.units_per_meter));
+				}
 			if (v.owner.can_fire() && out.authored && out.authored->forearm)
 			{
 				head_pose_bridge::spatial_frame body;
