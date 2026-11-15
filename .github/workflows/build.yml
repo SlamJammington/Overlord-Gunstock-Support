@@ -96,10 +96,17 @@ jobs:
       - name: Package client overlay
         run: python tools/package_client.py --configuration ${{ matrix.configuration }}
 
+      - name: Read version for the artifact name
+        id: version
+        shell: bash
+        run: |
+          python -c "import json; print('name=' + json.load(open('version.json'))['name'].replace(' ', ''))" >> "$GITHUB_OUTPUT"
+          echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
       - name: Upload client overlay
         uses: actions/upload-artifact@v4
         with:
-          name: overlord-${{ matrix.configuration }}-${{ github.sha }}
+          name: Overlord-Gunstock-${{ steps.version.outputs.name }}-${{ matrix.configuration }}-${{ steps.version.outputs.sha }}
           path: output/packages/**/*.zip
           if-no-files-found: error
           retention-days: 14

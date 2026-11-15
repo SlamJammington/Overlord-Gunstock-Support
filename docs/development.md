@@ -54,6 +54,22 @@ Both `/m` and the project-level `MultiProcessorCompile` setting are enabled. Lar
 
 ## Select validation for the change
 
+The native executable cache under `%LOCALAPPDATA%/h2-mod/bin` is compared with
+the current game's ASLR-patched bytes on each startup. A stale cache is replaced
+atomically; an in-use stale file produces an explicit startup error. A read lease
+keeps the verified file unchanged until it is mapped. Profiles and saves are not
+removed when refreshing this generated executable.
+
+Native hooks require the game image at `0x140000000`. A different mapped or
+preferred base stops startup before import/TLS patching. TLS bootstrap checks
+directory bounds, absolute addresses, helper capacity (including zero fill),
+the current thread's slot and committed memory access before writing. Temporary
+write permissions are checked and restored per memory region. The
+[PE/TLS specification](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-tls-section)
+defines these address and template fields. `game-loader-tests` exercises synthetic
+images and real Win32 file/protection failures; it does not establish affected-user
+startup recovery or game/headset acceptance.
+
 Test target definitions live in `premake/vr_tests.lua`; the main script invokes
 its registration function in the root path context. `test_executable` centralizes
 executable kind, language and output layout; feature sources and dependencies stay
@@ -63,6 +79,9 @@ These are registered standalone targets. Executable paths are relative to `build
 
 | Change area | Project target | Relative executable path |
 | --- | --- | --- |
+| Native game executable cache and loader | `game-loader-tests` | `game-loader/game-loader-tests.exe` |
+| Crash and focused watchdog dump evidence | `crash-evidence-tests` | `crash-evidence/crash-evidence-tests.exe` |
+| Texture creation and CPU-submit incident records | `d3d11-texture-diagnostics-tests` | `texture-diagnostics/d3d11-texture-diagnostics-tests.exe` |
 | Native query signatures and live read-only globals | `vr-native-binding-tests` | `native-bindings/vr-native-binding-tests.exe` |
 | Campaign phases, camera policy and scripted use | `vr-campaign-policy-tests` | `campaign-policy/vr-campaign-policy-tests.exe` |
 | Hand arbitration and phase binding | `vr-hand-interaction-tests` | `hand-interaction/vr-hand-interaction-tests.exe` |

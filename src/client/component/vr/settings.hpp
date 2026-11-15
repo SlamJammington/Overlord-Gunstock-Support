@@ -26,15 +26,16 @@ namespace vr::settings
 	struct choice_setting
 	{
 		const char* name;
-		std::array<const char*, 5> values; // Null terminated for native enum registration.
+		std::array<const char*, 7> values; // Null terminated for native enum registration.
 		int default_index{};
-		std::array<const char*, 5> label_keys{}; // Launcher localization keys, paired with values.
+		std::array<const char*, 7> label_keys{}; // Launcher localization keys, paired with values.
 	};
 	inline constexpr choice_setting killfeed_style{
 		.name = "vr_killfeedStyle",
-		.values = {"off", "bocw", "mw_classic", "mw2019"},
+		.values = {"off", "bocw", "mw_classic", "mw2019", "mw2022", "mw2023"},
 		.default_index = 3,
-		.label_keys = {"choice.disabled", "choice.bocw", "choice.mwClassic", "choice.mw2019"}};
+		.label_keys = {"choice.disabled", "choice.bocw", "choice.mwClassic", "choice.mw2019",
+			"choice.mw2022", "choice.mw2023"}};
 	inline constexpr choice_setting cheat_health{
 	    .name = "vr_cheatHealth",
 	    .values = {"off", "demigod", "god"},
@@ -58,10 +59,29 @@ namespace vr::settings
 	inline constexpr choice_setting weapon_grip_mode{.name = "vr_weaponGripMode",
 	                                                 .values = {"hold", "toggle"},
 	                                                 .label_keys = {"choice.hold", "choice.toggle"}};
+	inline constexpr choice_setting melee_weapon{
+		.name = "vr_meleeWeapon",
+		.values = {"default", "ghost", "baton", "karambit", "ending", "bloody"},
+		.label_keys = {"choice.meleeDefault", "choice.meleeGhost", "choice.meleeBaton",
+			"choice.meleeKarambit", "choice.meleeEnding", "choice.meleeBloody"}};
+	inline constexpr choice_setting handedness{.name = "vr_handedness",
+	                                          .values = {"right", "left"},
+	                                          .label_keys = {"choice.rightHand", "choice.leftHand"}};
+	inline constexpr choice_setting desktop_eye{.name = "vr_desktopEye",
+	                                           .values = {"left", "right"},
+	                                           .default_index = 1,
+	                                           .label_keys = {"choice.leftEye", "choice.rightEye"}};
+	inline constexpr choice_setting body_pose_mode{.name = "vr_bodyPoseMode",
+	                                              .values = {"inferred", "head_locked"},
+	                                              .label_keys = {"choice.inferredBody", "choice.headLockedBody"}};
 	inline constexpr std::array choices{
 	    runtime_backend,
+	    handedness,
+	    desktop_eye,
+	    body_pose_mode,
 	    controller_pose_mode,
 	    weapon_grip_mode,
+	    melee_weapon,
 	    killfeed_style,
 	    choice_setting{
 	        .name = turn_mode, .values = {"smooth", "snap"}, .label_keys = {"choice.smooth", "choice.snap"}},
@@ -114,6 +134,7 @@ namespace vr::settings
 	inline constexpr boolean_setting recording_mode{"vr_recordingMode", false};
 	inline constexpr number_setting recording_dim{"vr_recordingDim", 65.f, 0.f, 100.f, 1.f};
 	inline constexpr boolean_setting quick_reload{"vr_quickReload", true};
+	inline constexpr boolean_setting support_grip_lock{"vr_supportGripLock", true};
 	inline constexpr boolean_setting chambering_guide{"vr_chamberingGuide", false};
 	inline constexpr boolean_setting physical_ladders{"vr_physicalLadders", true};
 	inline constexpr boolean_setting smart_ammo_selection{"vr_smartAmmoSelection", true};
@@ -128,7 +149,7 @@ namespace vr::settings
 	inline constexpr boolean_setting ads_sprint{"vr_adsSprint", true};
 	inline constexpr boolean_setting exo_punch{"vr_exoPunch", false};
 	inline constexpr boolean_setting hei_round{"vr_heiRound", false};
-	// Physical gunstock: two-hand weapons aim along the mounted controllers' line.
+	// Physical gunstock: two-hand weapons keep the rear controller's aim plus one offset.
 	inline constexpr boolean_setting gunstock_mode{"vr_gunstockMode", false};
 	inline constexpr std::array gunstock_offset{
 	    number_setting{"vr_gunstockPitch", 0.f, -45.f, 45.f, .1f},
@@ -144,6 +165,7 @@ namespace vr::settings
 	inline constexpr auto toggles = []
 	{
 		constexpr std::array gameplay{recording_mode,
+		                              support_grip_lock,
 		                              quick_reload,
 		                              chambering_guide,
 		                              physical_ladders,

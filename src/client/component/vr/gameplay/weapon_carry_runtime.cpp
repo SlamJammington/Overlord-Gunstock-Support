@@ -65,6 +65,7 @@ namespace vr::gameplay::weapons::carry
 		std::atomic_bool alive{true}, running{};
 		game::dvar_t* enabled{};
 		game::dvar_t* grip_mode{};
+		game::dvar_t* support_grip_lock{};
 		std::array<game::dvar_t*, 6> slot_settings{};
 		inventory owned; // Server is the only writer; readers receive a published copy.
 		std::mutex publication_mutex;
@@ -507,7 +508,7 @@ namespace vr::gameplay::weapons::carry
 				owned.reconcile_instances({native.owned.data(), native.count});
 				const auto selected = native_ammunition::projected_identity(native.selected);
 				if (const auto* item = owned.find(selected);
-				    item && !item->policy.abdominal && owned.equip(selected, hand::right))
+				    item && !item->policy.abdominal && owned.equip(selected, default_equip_hand()))
 					preferred = selected;
 				player = native.player;
 				last_selection = native.selected;
@@ -658,7 +659,7 @@ namespace vr::gameplay::weapons::carry
 			}
 			// A native requested selection is not an acknowledgement. In particular,
 			// the mission draw owns its switch lock until the startup watcher exists.
-			// Do not auto-equip the requested weapon to the right hand underneath it.
+			// Do not auto-equip the requested weapon underneath its native transition.
 			const bool mission_transition = pending_abdominal.weapon ||
 			                                equipment::special::designator_events::owns_native_transition() ||
 			                                equipment::special::notebook::controlling();
@@ -673,7 +674,7 @@ namespace vr::gameplay::weapons::carry
 				{
 					selection_pending = false;
 					if (const auto id = native_ammunition::projected_identity(native.selected);
-					    owned.find(id) && !owned.find(id)->policy.abdominal && owned.equip(id, hand::right))
+					    owned.find(id) && !owned.find(id)->policy.abdominal && owned.equip(id, default_equip_hand()))
 					{
 						preferred = id;
 						edges = {};
@@ -698,7 +699,7 @@ namespace vr::gameplay::weapons::carry
 				// Script/keyboard selection is an explicit equipment request. Console
 				// give does not request selection and never seizes a holding hand.
 				if (const auto id = native_ammunition::projected_identity(native.selected);
-				    owned.find(id) && !owned.find(id)->policy.abdominal && owned.equip(id, hand::right))
+				    owned.find(id) && !owned.find(id)->policy.abdominal && owned.equip(id, default_equip_hand()))
 				{
 					preferred = id;
 					edges = {};
@@ -970,6 +971,8 @@ namespace vr::gameplay::weapons::carry
 				complete(r, last);
 			}
 			bool ordinary_released{};
+			const bool support_locked = support_grip_lock ? support_grip_lock->current.enabled
+			                                              : settings::support_grip_lock.default_value;
 			for (const auto& v : owned.instances())
 				if (v.at == location::held && v.owner.can_fire() && valid_hand(v.owner.support))
 				{
@@ -982,10 +985,9 @@ namespace vr::gameplay::weapons::carry
 					const int off = int(v.owner.support);
 					if (!held_pose.authored || held_pose.owner.id() != v.id) continue;
 					const auto retention = retained_support(*held_pose.authored, held_pose.gun, held_pose.supports[off],
-						wrists[int(v.owner.rear)].position, wrists[off].position, body.units_per_meter, true);
-					if (retention == support_retention::released ||
-						(retention == support_retention::retained &&
-						 !underbarrel::ordinary_support_allowed(held_pose, wrists[off], v.owner.support, true)))
+						wrists[int(v.owner.rear)].position, wrists[off].position, body.units_per_meter, true, support_locked,
+						support_locked || underbarrel::ordinary_support_allowed(held_pose, wrists[off], v.owner.support, true));
+					if (retention == support_retention::released)
 					{
 						const auto result = owned.release(
 						    v.id, 1u << off, location::absent, false, [](const instance&) { return false; });
@@ -1038,7 +1040,7 @@ namespace vr::gameplay::weapons::carry
 		if (fresh)
 			if (const auto* v = result.find(native_ammunition::projected_identity(selected));
 			    v && !v->policy.abdominal)
-				result.equip(v->id, hand::right);
+				result.equip(v->id, default_equip_hand());
 		return result;
 	}
 	bool restore_inventory(std::span<const instance> entries, identity selected)
@@ -1670,6 +1672,11 @@ namespace vr::gameplay::weapons::carry
 			                                 mode.default_index,
 			                                 game::DVAR_FLAG_SAVED,
 			                                 "Weapon grips: hold to carry, or press again to release");
+			const auto& support_lock = settings::support_grip_lock;
+			support_grip_lock = dvars::register_bool(support_lock.name,
+			                                         support_lock.default_value,
+			                                         game::DVAR_FLAG_SAVED,
+			                                         "Keep ordinary support grips attached until Grip release, ignoring hand distance");
 			constexpr std::array names{"vr_holsterWaistWidth",
 			                           "vr_holsterWaistDown",
 			                           "vr_holsterBackDistance",
@@ -1702,6 +1709,7 @@ namespace vr::gameplay::weapons::carry
 					        out << "active=" << active() << " selected=" << projection().weapon
 					            << " grip_mode="
 					            << (grip_mode && grip_mode->current.integer == 1 ? "toggle" : "hold")
+					            << " support_grip_lock=" << (support_grip_lock && support_grip_lock->current.enabled)
 					            << " transitions=" << transitions << " rejections=" << rejections
 					            << " invariant=" << owned.invariant() << " reason=" << reason
 					            << " native=" << native_carry::status() << '\n';

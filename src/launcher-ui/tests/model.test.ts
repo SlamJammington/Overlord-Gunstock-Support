@@ -41,6 +41,24 @@ const state = {
     ],
   },
 } as unknown as SettingsState;
+test("melee selection has a localized Personalization page between Gameplay and Cheats", () => {
+  assert.equal(categories.indexOf("personalization"), categories.indexOf("gameplay") + 1);
+  assert.equal(categories.indexOf("cheats"), categories.indexOf("personalization") + 1);
+  const field = fields.find((entry) => entry.name === "vr_meleeWeapon")!;
+  assert.equal(field.category, "personalization");
+  assert.equal(field.type, "choice");
+  for (const catalog of Object.values(catalogs))
+    for (const key of ["settings.personalization", "settings.personalizationHint", field.group,
+      field.label, field.description!, "choice.meleeDefault", "choice.meleeGhost", "choice.meleeBaton",
+      "choice.meleeKarambit", "choice.meleeEnding", "choice.meleeBloody"])
+      assert.ok(catalog[key]);
+  const values = ["default", "ghost", "baton", "karambit", "ending", "bloody"];
+  const fixture = { ...state, values: { vr_meleeWeapon: "default" },
+    choices: { vr_meleeWeapon: values.map((value) => ({ value, labelKey: "" })) } } as SettingsState;
+  for (const value of values)
+    assert.equal(collect({ vr_meleeWeapon: value }, fixture).vr_meleeWeapon, value);
+  assert.throws(() => collect({ vr_meleeWeapon: "sas" }, fixture));
+});
 test("CPU wait timing is an optional localized Debug toggle", () => {
   const field = fields.find((entry) => entry.name === "vr_debugWaitTiming");
   assert.ok(field);
@@ -55,13 +73,74 @@ test("CPU wait timing is an optional localized Debug toggle", () => {
     assert.equal(collect(makeDraft(selected.values, selected.limits), selected).vr_debugWaitTiming, enabled);
   }
 });
-test("weapon grip mode is a localized Weapon interaction choice", () => {
+test("body positioning is a localized Basics choice", () => {
+  const field = fields.find((entry) => entry.name === "vr_bodyPoseMode")!;
+  assert.equal(field.category, "basics");
+  assert.equal(field.group, "settings.bodyPose");
+  assert.equal(field.type, "choice");
+  for (const catalog of Object.values(catalogs)) {
+    for (const key of [field.group, field.label, field.description!, "choice.inferredBody", "choice.headLockedBody"])
+      assert.ok(catalog[key]);
+  }
+  const fixture = {
+    ...state,
+    values: { vr_bodyPoseMode: "inferred" },
+    choices: { vr_bodyPoseMode: [
+      { value: "inferred", labelKey: "choice.inferredBody" },
+      { value: "head_locked", labelKey: "choice.headLockedBody" },
+    ] },
+  } as SettingsState;
+  for (const mode of ["inferred", "head_locked"])
+    assert.equal(collect({ ...makeDraft(fixture.values, fixture.limits), vr_bodyPoseMode: mode }, fixture).vr_bodyPoseMode, mode);
+  assert.throws(() => collect({ vr_bodyPoseMode: "invalid" }, fixture), /error.invalidVR/);
+});
+test("handedness is a localized Basics choice with validated left and right values", () => {
+  const field = fields.find((entry) => entry.name === "vr_handedness")!;
+  assert.equal(field.category, "basics");
+  assert.equal(field.group, "settings.handedness");
+  assert.equal(field.type, "choice");
+  for (const catalog of Object.values(catalogs)) {
+    for (const key of [field.group, field.label, field.description!, "choice.rightHand", "choice.leftHand"])
+      assert.ok(catalog[key]);
+  }
+  const fixture = {
+    ...state,
+    values: { vr_handedness: "right" },
+    choices: { vr_handedness: ["right", "left"].map((value) => ({ value, labelKey: `choice.${value}Hand` })) },
+  } as SettingsState;
+  for (const hand of ["right", "left"])
+    assert.equal(collect({ ...makeDraft(fixture.values, fixture.limits), vr_handedness: hand }, fixture).vr_handedness, hand);
+  assert.throws(() => collect({ vr_handedness: "invalid" }, fixture), /error.invalidVR/);
+});
+test("desktop preview eye is a localized choice independent of stabilization", () => {
+  const field = fields.find((entry) => entry.name === "vr_desktopEye")!;
+  assert.equal(field.category, "basics");
+  assert.equal(field.group, "settings.stabilization");
+  assert.equal(field.type, "choice");
+  for (const catalog of Object.values(catalogs)) {
+    for (const key of [field.label, field.description!, "choice.leftEye", "choice.rightEye"])
+      assert.ok(catalog[key]);
+  }
+  const fixture = {
+    ...state,
+    values: { vr_desktopEye: "right", vr_desktopStabilization: false },
+    choices: { vr_desktopEye: ["left", "right"].map((value) => ({ value, labelKey: `choice.${value}Eye` })) },
+  } as SettingsState;
+  for (const eye of ["left", "right"])
+    for (const stabilized of [false, true]) {
+      const selected = { ...fixture, values: { vr_desktopEye: eye, vr_desktopStabilization: stabilized } };
+      assert.equal(visible(field, selected.values), true);
+      assert.deepEqual(collect(makeDraft(selected.values, selected.limits), selected), selected.values);
+    }
+  assert.throws(() => collect({ ...makeDraft(fixture.values, fixture.limits), vr_desktopEye: "invalid" }, fixture), /error.invalidVR/);
+});
+test("weapon grip mode and support lock are independent localized Weapon interaction settings", () => {
   const field = fields.find((entry) => entry.name === "vr_weaponGripMode")!;
   assert.equal(field.category, "gameplay");
   assert.equal(field.group, "settings.weaponInteraction");
   assert.equal(field.type, "choice");
   for (const catalog of Object.values(catalogs)) {
-    for (const key of ["settings.weaponGripMode", "settings.weaponGripModeHint", "choice.hold", "choice.toggle"])
+    for (const key of ["settings.weaponGripMode", "settings.weaponGripModeHint", "choice.hold", "choice.toggle", "settings.supportGripLock", "settings.supportGripLockHint"])
       assert.ok(catalog[key]);
   }
   const fixture = {
@@ -71,6 +150,16 @@ test("weapon grip mode is a localized Weapon interaction choice", () => {
   } as SettingsState;
   assert.equal(collect({ ...makeDraft(fixture.values, fixture.limits), vr_weaponGripMode: "toggle" }, fixture).vr_weaponGripMode, "toggle");
   assert.throws(() => collect({ vr_weaponGripMode: "invalid" }, fixture), /error.invalidVR/);
+  const supportLock = fields.find((entry) => entry.name === "vr_supportGripLock")!;
+  assert.equal(supportLock.category, "gameplay");
+  assert.equal(supportLock.group, field.group);
+  assert.equal(supportLock.type, "toggle");
+  for (const mode of ["hold", "toggle"]) {
+    for (const locked of [false, true]) {
+      const selected = { ...fixture, values: { vr_weaponGripMode: mode, vr_supportGripLock: locked } };
+      assert.deepEqual(collect(makeDraft(selected.values, selected.limits), selected), selected.values);
+    }
+  }
 });
 test("help searches all words and translations without exposing unacknowledged story entries", () => {
   assert.ok(

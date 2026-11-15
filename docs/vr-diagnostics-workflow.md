@@ -298,3 +298,76 @@ Remaining limits: untested devices, levels, reconnection, long-term operation, e
 ```
 
 User confirmation can establish visual acceptance within the tested scope without inventing counters or requiring another capture merely to record it. Do not report FPS or improvement percentages without measurements. When multiple changes ship together, do not claim their individual contributions have been established. Put reusable conclusions in `docs/`; keep local scripts, dumps, and failed experiments in ignored local directories.
+## Bounded crash and stall evidence
+
+New crash, emergency and watchdog dumps include an `OVLD` user stream and selected
+memory ranges for offline x64 stack unwinding. The planner includes PE headers,
+function tables and unwind records near the exception/selected watchdog thread,
+small code windows and bounded register pointees. Supplemental memory requests are capped at
+8 MiB, 256 ranges, 16 modules and 64 candidate code addresses; each full function
+table is capped at 2 MiB. These limits apply to added evidence, not the complete
+minidump. Separately, up to four fixed user-stream providers may each add at most
+512 KiB. No full-memory or full-code-segment dump flag is enabled.
+
+Watchdog writers select their scene, Present, interop or backend thread. Context
+sampling briefly suspends that thread only long enough to copy its registers and
+resumes it before memory planning/dump writing. This is a pre-dump sample, not an
+atomic process snapshot. Values found on the stack nominate code addresses; they
+are not presented as a proven call chain.
+
+Inspect a new dump without game binaries or Python dependencies:
+
+```bat
+python tools/read_crash_evidence.py path/to/crash.dmp
+```
+
+The JSON distinguishes scheduled ranges from bytes actually present in the dump,
+reports capture limits and missing context, and treats older dumps as `absent`.
+The parser bounds descriptor counts and uses a read-only file mapping. The native
+`crash-evidence-tests` fixture generates real exception/watchdog dumps and tests
+stack unwinding solely from captured memory, with no image-file fallback.
+
+The [minidump callback contract](https://learn.microsoft.com/en-us/windows/win32/api/minidumpapiset/ne-minidumpapiset-minidump_callback_type)
+defines supplemental memory requests. These writers use live process handles;
+the [PSS snapshot example](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/proc_snap/export-a-process-snapshot-to-a-file)
+explains why `IsProcessSnapshotCallback` must not identify them as PSS handles.
+
+### Texture and CPU-submit records
+
+The observed H2 D3D11 device records `CreateTexture2D` entry/return parameters,
+caller address, HRESULT, device generation and returned texture identity. It
+copies descriptors only; it never copies initial pixel data, retains a COM
+resource, changes the descriptor/result, or enables the D3D debug layer. Device
+generations identify observed candidates; compare pointers/generations with the
+active graphics snapshot when investigating a transition.
+Calls on unregistered devices that happen to share the same runtime vtable pass
+directly through to the original method and do not enter the game's records.
+
+The recorder retains 256 recent events, up to 32 active operations and a latched
+failure independently of ring wrap. The first device-removed/hung/reset/internal
+error takes priority over an earlier ordinary API validation failure; otherwise
+the first texture failure is retained. Neither is labeled as root-cause proof.
+Native conversion command submission,
+AA dispatch (including AA mode), and session resource resets share the record
+timeline. Active entries survive a blocked call; a normal return or C++ scope
+unwind retires their diagnostic slots. These are CPU call boundaries and pointer
+identities, with no claim of GPU completion or resource lifetime.
+
+Each slot uses a try-only publication/read guard. Writers/readers skip busy
+records and report loss/overflow counters instead of waiting for rendering or a
+faulting producer. The observer registry supports 32 device identities and 32
+vtable identities; unavailable coverage and later middleware patches are
+reported without repatching those methods. The original API receives its exact
+arguments, and its HRESULT, output pointer and LastError are preserved.
+
+The `OVTX` fixed-size snapshot is included in ordinary, emergency and watchdog
+dumps through allocation-free supplement providers. Crash formatting reads this
+CPU snapshot without calling graphics interfaces. The same evidence appears in
+status reports and bounded live-trace checkpoints, so a texture failure can be
+recorded even when no failed Present has occurred. The dump reader above exposes
+it under `graphics`, including active operations and `first_failure`.
+
+`d3d11-texture-diagnostics-tests` exercises a real WARP device, a simulated
+device-removal HRESULT, an in-flight blocked call, concurrent publication, ring
+wrap/active overflow, and preservation in an actual minidump. WARP/fixture results
+do not establish AMD/NVIDIA hardware, game or HMD acceptance.

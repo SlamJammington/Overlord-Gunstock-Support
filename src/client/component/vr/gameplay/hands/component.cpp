@@ -1070,7 +1070,7 @@ namespace vr::gameplay::hands
 				     storage_body,
 				     reload_tokens,
 				     spatial.head_forward,
-				     spatial.head_up});
+				     spatial.head_up,view_offset,interaction_presentation.knife_hands});
 				empty_native::accept(object, object->matrices, object->timestamp);
 				vehicles::publish_render_hands(
 				    input,
@@ -1266,8 +1266,11 @@ namespace vr::gameplay::hands
 					    if (weapons::underbarrel::enabled() &&
 					        weapons::underbarrel::directional_grips(
 					            solver().binding.underbarrel_parts.type) &&
-					        !module_grip.owns_support)
+					        !module_grip.owns_support &&
+					        !(weapons::carry::active() && owner.support == other))
 					    {
+						    // Carry validates spatial retention before publishing ownership.
+						    // Rechecking a committed support here would visually release a locked grip.
 						    const int off = int(other);
 						    const auto wrist =
 						        multiply(conjugate(targets[int(owner.rear)].rotation), targets[off].rotation);
@@ -1942,7 +1945,7 @@ namespace vr::gameplay::hands
 			     storage_body,
 			     reload_tokens,
 			     spatial.head_forward,
-			     spatial.head_up});
+			     spatial.head_up,view_offset,interaction_presentation.knife_hands});
 			// Only AFTER native bones have been committed. Rendering later matches
 			// the exact object/buffer/epoch AND consumed bone, not current_muzzle().
 			if (layout.muzzle >= 0)

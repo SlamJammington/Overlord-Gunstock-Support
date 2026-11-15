@@ -9,6 +9,24 @@ return function()
 		targetdir ("%{wks.location}/bin/%{cfg.platform}/%{cfg.buildcfg}/vr-tests/" .. output_directory)
 	end
 
+	test_executable("game-loader-tests", "game-loader")
+		files {"./tests/loader/game_loader_tests.cpp", "./src/client/loader/binary_cache.cpp",
+			"./src/client/loader/tls_bootstrap.cpp", "./src/common/utils/io.cpp"}
+		includedirs {"./src/client"}
+
+	test_executable("crash-evidence-tests", "crash-evidence")
+		files {"./tests/loader/crash_evidence_tests.cpp", "./src/common/exception/dump_evidence.cpp",
+			"./src/common/exception/minidump.cpp"}
+		gsl.import()
+		links {"dbghelp"}
+
+	test_executable("d3d11-texture-diagnostics-tests", "texture-diagnostics")
+		files {"./tests/vr/texture_diagnostics_tests.cpp", "./src/client/component/d3d11/texture_diagnostics.cpp",
+			"./src/common/exception/minidump.cpp", "./src/common/exception/dump_evidence.cpp"}
+		includedirs {"./src/client"}
+		gsl.import()
+		links {"d3d11", "dxgi", "dbghelp"}
+
 	test_executable("vr-support-diagnostics-tests", "support-diagnostics")
 		files {"./tests/vr/support_diagnostics_tests.cpp", "./src/client/component/vr/diagnostics/support_archive.cpp",
 			"./src/common/utils/compression.cpp"}
@@ -115,6 +133,7 @@ return function()
 
 	test_executable("vr-launcher-settings-tests", "launcher-settings")
 		files {"./tests/vr/launcher_settings_tests.cpp", "./src/client/launcher/vr_settings_config.hpp",
+			"./tests/vr/native_melee_setting_tests.cpp", "./src/client/component/vr/gameplay/melee_weapon_selection.cpp",
 			"./src/client/component/vr/settings.hpp", "./src/client/launcher/bridge_protocol.hpp"}
 		includedirs {"./tests/vr", "./src/client"}
 		gsl.import()
@@ -190,6 +209,12 @@ return function()
 		includedirs {"./tests/vr", "./src/client"}
 		gsl.import()
 		links {"d3d11", "dxgi", "d3dcompiler"}
+
+	test_executable("vr-attachment-pose-tests", "attachment-pose")
+		files {"./tests/vr/attachment_pose_tests.cpp",
+			"./src/client/component/vr/gameplay/hands/attachment_pose.cpp"}
+		includedirs {"./tests/vr", "./src/client"}
+		gsl.import()
 
 	test_executable("vr-menu-backdrop-tests", "menu-backdrop")
 		files {"./tests/vr/menu_backdrop_tests.cpp", "./src/client/component/vr/spatial_panel_renderer.cpp"}

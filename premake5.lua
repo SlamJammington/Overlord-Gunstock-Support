@@ -174,6 +174,16 @@ for _, source in ipairs({"weapon_registry", "weapon_mechanics_profiles"}) do
 end
 filter {}
 
+for _, source in ipairs({"binary_cache", "tls_bootstrap"}) do
+	filter ("files:src/client/loader/" .. source .. ".cpp")
+	flags {"NoPCH"}
+end
+filter {}
+
+filter "files:src/client/component/d3d11/texture_diagnostics.cpp"
+	flags {"NoPCH"}
+filter {}
+
 linkoptions {"/IGNORE:4254", "/DYNAMICBASE:NO", "/SAFESEH:NO", "/LARGEADDRESSAWARE", "/LAST:.main", "/PDBCompress"}
 
 files {"./src/client/**.rc", "./src/client/**.hpp", "./src/client/**.cpp", "./src/client/resources/**.*"}
@@ -212,6 +222,7 @@ local function copy_client_resources(destination)
 		'{COPYFILE} "%{wks.location}/../data/cdata/scripts/killfeed_ducking.gsc" "' .. path.join(destination, "h2-mod/scripts/killfeed_ducking.gsc") .. '"',
 		'{MKDIR} "' .. path.join(destination, "h2-mod/zone") .. '"',
 			'{COPYFILE} "%{wks.location}/../data/zone/h2_vr_sounds.ff" "' .. path.join(destination, "h2-mod/zone/h2_vr_sounds.ff") .. '"',
+			'{COPYFILE} "%{wks.location}/../data/zone/h2_vr_melee.ff" "' .. path.join(destination, "h2-mod/zone/h2_vr_melee.ff") .. '"',
 		'{MKDIR} "' .. path.join(destination, "steamvr") .. '"',
 		'{COPYFILE} "%{wks.location}/../assets/steamvr/cover.png" "' .. path.join(destination, "steamvr/cover.png") .. '"',
 		'{COPYFILE} "%{wks.location}/../assets/steamvr/cover-small.png" "' .. path.join(destination, "steamvr/cover-small.png") .. '"',

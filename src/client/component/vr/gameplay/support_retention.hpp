@@ -7,8 +7,11 @@ namespace vr::gameplay::weapons
 	enum class support_retention { retained, suspended, released };
 	// Test the current solved contact, never the displaced one-hand acquire
 	// anchor. Missing tracking/geometry suspends steering without changing grasp ownership.
+	// Locking skips spatial breakaway only; the carry owner still processes Grip
+	// release, instance changes and mechanical transfers before this check.
 	inline support_retention retained_support(const profile& p, hands::anchor gun, hands::anchor contact,
-		hands::vec rear, hands::vec other, float units, bool tracking_ready) noexcept
+		hands::vec rear, hands::vec other, float units, bool tracking_ready, bool locked,
+		bool spatially_allowed = true) noexcept
 	{
 		if (!tracking_ready || !std::isfinite(units) || units <= 0 ||
 			!std::isfinite(p.release_meters) || p.release_meters <= 0)
@@ -17,9 +20,11 @@ namespace vr::gameplay::weapons
 		const float distance = hands::length(hands::sub(other, hands::pose_math::compose(gun, contact).position)) / units;
 		if (!std::isfinite(separation) || !std::isfinite(distance)) return support_retention::suspended;
 		// A physical stock holds the hands apart; only the grip button releases support.
-		if (p.support_enabled && p.aiming == aim_rule::two_hand && gunstock::settings().enabled)
-			return gunstock::retains(rear, other, units) ? support_retention::retained : support_retention::released;
-		if (!p.support_enabled || (p.aiming == aim_rule::two_hand && separation < .08f) || distance > p.release_meters)
+		if (p.support_enabled && !locked && p.aiming == aim_rule::two_hand && gunstock::settings().enabled)
+			return gunstock::retains(rear, other, units) && spatially_allowed ? support_retention::retained
+			                                                              : support_retention::released;
+		if (!p.support_enabled || (!locked &&
+			((p.aiming == aim_rule::two_hand && separation < .08f) || distance > p.release_meters || !spatially_allowed)))
 			return support_retention::released;
 		return support_retention::retained;
 	}

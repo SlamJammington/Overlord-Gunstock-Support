@@ -263,6 +263,7 @@ namespace vr::gameplay::weapon_hud
 				const auto key = line == status_line::quick_reload     ? game_text::key::weapon_quick_loading
 				                 : line == status_line::magazine_empty ? game_text::key::weapon_magazine_empty
 				                 : line == status_line::no_ammo        ? game_text::key::weapon_no_ammo
+				                 : line == status_line::discard        ? game_text::key::weapon_discard
 				                                                       : game_text::key::weapon_needs_chamber;
 				auto& text = status_texts[static_cast<size_t>(line)];
 				if (!text.ensure_utf8(device.Get(),
@@ -430,7 +431,8 @@ namespace vr::gameplay::weapon_hud
 							return matched ? select_messages(source.needs_chamber,
 							                                 source.quick_loading,
 							                                 source.loaded,
-							                                 source.reserve)
+							                                 source.reserve,
+							                                 source.disposable)
 							               : warning_messages{};
 						};
 						const auto messages = warning_status(index);
