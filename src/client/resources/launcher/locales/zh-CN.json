@@ -323,6 +323,8 @@
   "settings.gunstock": "枪托",
   "settings.gunstockMode": "枪托模式",
   "settings.gunstockModeHint": "适用于同时固定两个控制器的实体枪托。双手武器沿用后手控制器的瞄准方向并叠加下方偏移，前手不会改变枪管方向，握持时枪也不会跳动；前手在后手前方任意位置都可辅助握持。校准方法：在游戏中按 ~，输入 vr_gunstockCalibrate，关闭控制台，将枪托抵肩并沿枪托望向远处一点，然后扣动前手扳机。",
+  "settings.gunstockSupportLatch": "保持前手抓握",
+  "settings.gunstockSupportLatchHint": "在按住模式下，松开 Grip 后前手仍留在双手武器上，不会因为在枪托上握力放松而脱手。需要松手时（例如装填前），用前手再按一次 Grip。后手松开时双手同时松开。关闭后需要一直按住 Grip。",
   "settings.gunstockOffsets": "枪托角度偏移",
   "settings.gunstockOffsetsHint": "由 vr_gunstockCalibrate 保存。单位为度，按右肩抵枪记录；左肩会自动镜像。vr_gunstockReset 会将三项归零。在游戏中按 ~，将指令中的 <数值> 换成所需值即可实时调整。",
   "settings.rightward": "向右",

@@ -323,6 +323,8 @@
   "settings.gunstock": "Gewehrschaft",
   "settings.gunstockMode": "Schaftmodus",
   "settings.gunstockModeHint": "Für einen physischen Gewehrschaft, der beide Controller hält. Zweihandwaffen behalten die Zielrichtung des hinteren Controllers plus den Versatz unten; die vordere Hand lenkt den Lauf nicht und lässt ihn beim Greifen nicht springen, und sie kann die Waffe überall vor der hinteren Hand stützen. Zum Kalibrieren im Spiel ~ drücken, vr_gunstockCalibrate eingeben, Konsole schließen, Schaft anlegen, entlang des Schafts auf einen fernen Punkt blicken und den Abzug der vorderen Hand ziehen.",
+  "settings.gunstockSupportLatch": "Vordere Hand festhalten",
+  "settings.gunstockSupportLatchHint": "Im Haltemodus bleibt die vordere Hand an einer Zweihandwaffe, nachdem Grip losgelassen wurde, und löst sich nicht mehr, wenn der Druck am Schaft nachlässt. Zum Loslassen mit der vorderen Hand erneut Grip drücken, etwa vor dem Nachladen. Lässt die hintere Hand los, lösen sich beide Hände. Ausschalten, um Grip wieder halten zu müssen.",
   "settings.gunstockOffsets": "Schaft-Winkelversatz",
   "settings.gunstockOffsetsHint": "Wird von vr_gunstockCalibrate gespeichert. Grad für einen Schaft an der rechten Schulter; die linke Schulter wird automatisch gespiegelt. vr_gunstockReset setzt alle drei auf null. Im Spiel ~ drücken und <Wert> ersetzen, um live anzupassen.",
   "settings.rightward": "Nach rechts",

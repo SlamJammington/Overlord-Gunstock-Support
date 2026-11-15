@@ -29,6 +29,8 @@ namespace vr::gameplay::weapons::gunstock
 	struct configuration
 	{
 		bool enabled{};
+		// The front hand keeps support after its Grip is let go (needs enabled).
+		bool latch_support{};
 		angles offset{};
 		std::array<float, 3> shift{}; // meters along the gun's right, up and forward axes (right shoulder)
 	};

@@ -771,14 +771,27 @@ namespace vr::gameplay::weapons::carry
 			// Consume only after per-hand pose admission. A missing opposite hand
 			// must neither swallow this hand's release nor replay it on recovery.
 			const bool toggle = grip_mode && grip_mode->current.integer == 1;
+			const bool latch = !toggle && gunstock::settings().latch_support;
 			unsigned mechanical_hands{};
-			if (toggle)
+			if (toggle || latch)
 				for (const auto& item : owned.instances())
 					if (item.at == location::held && valid_hand(item.owner.support) &&
 					    underbarrel::current(item.id).owns_support)
 						mechanical_hands |= 1u << unsigned(item.owner.support);
-			const auto toggle_owners = toggle_grip_owners(owned, toggle, mechanical_hands);
-			const auto event = edges.consume(interaction_input, gameplay, now, toggle_owners);
+			unsigned latched_hands{};
+			if (latch)
+			{
+				// Only stocked (two-hand aim) weapons latch; a pistol's support hand keeps hold mode.
+				const std::lock_guard lock(publication_mutex);
+				latched_hands = latched_support_hands(owned, true, [](const instance& item)
+				{
+					const auto* cached = scenes.find(item.id);
+					return cached && cached->authored && cached->authored->aiming == aim_rule::two_hand;
+				}) & ~mechanical_hands;
+			}
+			const auto toggle_owners = toggle_grip_owners(owned, toggle, mechanical_hands, latched_hands);
+			auto event = edges.consume(interaction_input, gameplay, now, toggle_owners);
+			event.released = released_with_latch(owned, event.released, latched_hands);
 			if (event.pressed || event.released || event.resumed || event.deferred != deferred_mask)
 			{
 				const unsigned down = (input.squeeze[0].down ? 1u : 0u) | (input.squeeze[1].down ? 2u : 0u);

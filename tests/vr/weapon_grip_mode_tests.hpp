@@ -183,5 +183,55 @@ namespace weapon_grip_mode_tests
 			      released.action == outcome::dropped && owned.invariant(),
 			      "simultaneous toggle presses drop once without transient hand promotion");
 		}
+		{
+			// Physical gunstock latch: hold mode, but the stocked front hand toggles.
+			inventory owned;
+			const owned_weapon items[]{{101, {true, true}}};
+			owned.reconcile(items);
+			owned.equip_definition(101, hand::right);
+			const auto id = owned.in_hand(hand::right)->id;
+			grip_edge_gate gate;
+			std::array<vr::controller_input::digital_sampler, 2> samplers;
+			vr::controller_input::frame f;
+			f.focused = true;
+			f.reference_generation = 1;
+			f.sampled_at = vr::controller_input::clock::time_point{} + 1s;
+			const auto stocked = [](const instance&) { return true; };
+			const auto tick = [&](bool rear_down, bool front_down)
+			{
+				++f.sequence;
+				f.sampled_at += 10ms;
+				f.grip[0].valid = f.grip[1].valid = true;
+				f.squeeze[0] = samplers[0].sample(true, front_down, f.sampled_at);
+				f.squeeze[1] = samplers[1].sample(true, rear_down, f.sampled_at);
+				const auto latched = latched_support_hands(owned, true, stocked);
+				auto edges = gate.consume(f, true, f.sampled_at, toggle_grip_owners(owned, false, 0, latched));
+				edges.released = released_with_latch(owned, edges.released, latched);
+				return edges;
+			};
+			tick(true, false);
+			check(latched_support_hands(owned, true, stocked) == 0, "a rear hand alone is never latched");
+			check(tick(true, true).pressed == 1u, "the front hand still takes support on a physical press");
+			owned.support(id, hand::left);
+			check(latched_support_hands(owned, true, stocked) == 1u &&
+			      latched_support_hands(owned, false, stocked) == 0 &&
+			      latched_support_hands(owned, true, [](const instance&) { return false; }) == 0,
+			      "only an enabled latch on a stocked weapon marks the support hand");
+			check(tick(true, false).released == 0 && tick(true, false).released == 0,
+			      "a latched front hand survives letting go of Grip");
+			const auto again = tick(true, true);
+			check(again.released == 1u && again.consumed == 1u && again.pressed == 0,
+			      "a second front press releases support and cannot acquire another object");
+			auto result = owned.release(id, again.released, location::absent, false, [](const auto&) { return false; });
+			check(result.action == outcome::support_released && owned.in_hand(hand::right) &&
+			      owned.find(id)->owner.support == hand::none,
+			      "the latch release removes only the support hand");
+			tick(true, false);
+			check(tick(true, true).pressed == 1u, "support can be taken again after a latch release");
+			owned.support(id, hand::left);
+			check(tick(true, false).released == 0, "the retaken support is latched again");
+			check(tick(false, false).released == 3u,
+			      "letting go of the rear hand also lets go of its latched front hand");
+		}
 	}
 }

@@ -339,6 +339,18 @@
     "description": "settings.gunstockModeHint"
   },
   {
+    "name": "vr_gunstockSupportLatch",
+    "category": "calibration",
+    "group": "settings.gunstock",
+    "label": "settings.gunstockSupportLatch",
+    "type": "toggle",
+    "description": "settings.gunstockSupportLatchHint",
+    "visibleWhen": [
+      "vr_gunstockMode",
+      true
+    ]
+  },
+  {
     "name": "vr_gunstockPitch",
     "category": "calibration",
     "group": "settings.gunstock",

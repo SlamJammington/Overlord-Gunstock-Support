@@ -6,17 +6,43 @@ namespace vr::gameplay::weapons::carry
 {
 	// Mission equipment and mechanical module grips keep their own hold/release
 	// contracts. Ordinary control/support hands share the carry preference.
+	// latched_hands: support hands that toggle even in hold mode (physical gunstock).
 	inline std::array<identity, 2> toggle_grip_owners(const inventory& owned,
 	                                                  bool toggle,
-	                                                  unsigned mechanical_hands = 0) noexcept
+	                                                  unsigned mechanical_hands = 0,
+	                                                  unsigned latched_hands = 0) noexcept
 	{
 		std::array<identity, 2> result{};
-		if (toggle)
-			for (unsigned h = 0; h < result.size(); ++h)
+		for (unsigned h = 0; h < result.size(); ++h)
+			if (toggle || (latched_hands & (1u << h)))
 				if (const auto* item = owned.in_hand(hand(h));
 				    item && !item->policy.abdominal && !(mechanical_hands & (1u << h)))
 					result[h] = item->id;
 		return result;
+	}
+	// A stock cannot keep the front Grip squeezed. With the latch, the front
+	// hand of a rear-held stocked weapon keeps support after Grip is let go.
+	template <class Stocked>
+	unsigned latched_support_hands(const inventory& owned, bool latch, Stocked&& stocked) noexcept
+	{
+		unsigned result{};
+		if (latch)
+			for (const auto& item : owned.instances())
+				if (item.at == location::held && item.owner.can_fire() && valid_hand(item.owner.support) &&
+				    !item.policy.abdominal && stocked(item))
+					result |= 1u << unsigned(item.owner.support);
+		return result;
+	}
+	// Letting go of the rear hand lets go of its latched front hand as well, so
+	// the weapon can be holstered or dropped without a separate front-hand press.
+	inline unsigned released_with_latch(const inventory& owned, unsigned released, unsigned latched_hands) noexcept
+	{
+		for (const auto& item : owned.instances())
+			if (item.at == location::held && valid_hand(item.owner.rear) && valid_hand(item.owner.support) &&
+			    (released & (1u << unsigned(item.owner.rear))) &&
+			    (latched_hands & (1u << unsigned(item.owner.support))))
+				released |= 1u << unsigned(item.owner.support);
+		return released;
 	}
 	// Same-frame acquisition uses authored local contacts and current tracking,
 	// never a render worker's previous squeeze decision.

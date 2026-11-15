@@ -323,6 +323,8 @@
   "settings.gunstock": "Gunstock",
   "settings.gunstockMode": "Gunstock mode",
   "settings.gunstockModeHint": "For a physical gunstock that holds both controllers. Two-handed weapons keep the rear controller's aim plus the offset below, so the front hand never steers the barrel or makes it jump when it grabs, and it can support the weapon anywhere ahead of the rear hand. To calibrate, press ~ in-game, enter vr_gunstockCalibrate, close the console, shoulder the stock, look along it at a distant point, and pull the front-hand trigger.",
+  "settings.gunstockSupportLatch": "Keep front hand attached",
+  "settings.gunstockSupportLatchHint": "In Hold grip mode, the front hand stays on a two-handed weapon after you let go of Grip, so it no longer drops off when your squeeze relaxes on the stock. Press Grip again with the front hand to let go, for example before reloading. Letting go with the rear hand releases both hands. Turn off to require holding Grip.",
   "settings.gunstockOffsets": "Gunstock angle offsets",
   "settings.gunstockOffsetsHint": "Saved by vr_gunstockCalibrate. Degrees for a right-shoulder stock; the left shoulder is mirrored automatically. vr_gunstockReset sets all three to zero. Press ~ in-game and replace <value> to adjust live.",
   "settings.rightward": "Rightward",

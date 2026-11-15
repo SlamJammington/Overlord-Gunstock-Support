@@ -40,6 +40,22 @@ front hand grabbed, while the rear controller alone was already aligned.
 Capture still logs the line's angle (`line_vs_gaze`, `line_vs_aim`) so that
 geometry can be examined, but it no longer affects aim.
 
+## Front-hand latch
+
+`vr_gunstockSupportLatch` (default on; launcher: Gunstock > Keep front hand
+attached) applies in Hold grip mode. Hold mode releases support as soon as the
+front Grip value falls below its release threshold (0.45 on value-type grips),
+which a hand resting on a stock does constantly. With the latch, the front hand
+of a rear-held two-hand weapon uses toggle semantics: a Grip press takes
+support, letting go of Grip keeps it, and a second press releases it (and is
+consumed, so it cannot also grab something else). The rear hand keeps Hold
+semantics; letting go of the rear hand also releases its latched front hand, so
+holstering and dropping need no separate front press. Physical reload parts
+need a free front hand, so press the front Grip once before reaching for a
+magazine. One-hand weapons, mission equipment and underbarrel module grips are
+unchanged, and Toggle grip mode already behaves this way for both hands.
+`vr_supportGripLock` still decides whether distance alone can release support.
+
 ## Calibration
 
 `vr_gunstockCalibrate` arms a capture; both controllers tick once. Shoulder the

@@ -151,6 +151,8 @@ namespace vr::settings
 	inline constexpr boolean_setting hei_round{"vr_heiRound", false};
 	// Physical gunstock: two-hand weapons keep the rear controller's aim plus one offset.
 	inline constexpr boolean_setting gunstock_mode{"vr_gunstockMode", false};
+	// The stocked front hand stays attached after Grip is let go; another press releases it.
+	inline constexpr boolean_setting gunstock_support_latch{"vr_gunstockSupportLatch", true};
 	inline constexpr std::array gunstock_offset{
 	    number_setting{"vr_gunstockPitch", 0.f, -45.f, 45.f, .1f},
 	    number_setting{"vr_gunstockYaw", 0.f, -45.f, 45.f, .1f},
@@ -182,6 +184,7 @@ namespace vr::settings
 		                              exo_punch,
 		                              hei_round,
 		                              gunstock_mode,
+		                              gunstock_support_latch,
 		                              boolean_setting{disable_lens_flare, false},
 		                              boolean_setting{camera_bob, true},
 		                              boolean_setting{recoil, true},

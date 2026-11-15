@@ -21,12 +21,14 @@ namespace vr::gameplay::weapons::gunstock
 	{
 		using clock = controller_input::clock;
 		game::dvar_t* mode{};
+		game::dvar_t* support_latch{};
 		std::array<game::dvar_t*, 3> offset{}, shift{};
 
 		configuration native_settings() noexcept
 		{
 			configuration result{};
 			result.enabled = mode && mode->current.enabled;
+			result.latch_support = result.enabled && support_latch && support_latch->current.enabled;
 			for (std::size_t i = 0; i < offset.size(); ++i)
 			{
 				if (offset[i])
@@ -338,6 +340,10 @@ namespace vr::gameplay::weapons::gunstock
 			                            settings::gunstock_mode.default_value,
 			                            game::DVAR_FLAG_SAVED,
 			                            "Physical gunstock: two-hand weapons keep the rear controller's aim");
+			support_latch = dvars::register_bool(settings::gunstock_support_latch.name,
+			                                     settings::gunstock_support_latch.default_value,
+			                                     game::DVAR_FLAG_SAVED,
+			                                     "Gunstock: the front hand stays attached after Grip is let go");
 			for (std::size_t i = 0; i < offset.size(); ++i)
 			{
 				const auto& field = settings::gunstock_offset[i];
@@ -400,9 +406,9 @@ namespace vr::gameplay::weapons::gunstock
 					             armed = pending.armed;
 					             attempt = last_attempt;
 				             }
-				             console::info("[VR gunstock] enabled=%d offset=%.1f/%.1f/%.1f shift=%.3f/%.3f/%.3f armed=%d "
+				             console::info("[VR gunstock] enabled=%d support_latch=%d offset=%.1f/%.1f/%.1f shift=%.3f/%.3f/%.3f armed=%d "
 				                           "captures=%llu rejections=%llu last=%.1f/%.1f/%.1f\n",
-				                           config.enabled, config.offset[0], config.offset[1], config.offset[2],
+				                           config.enabled, config.latch_support, config.offset[0], config.offset[1], config.offset[2],
 				                           config.shift[0], config.shift[1], config.shift[2], armed,
 				                           captures.load(), rejections.load(), last_capture[0], last_capture[1],
 				                           last_capture[2]);
