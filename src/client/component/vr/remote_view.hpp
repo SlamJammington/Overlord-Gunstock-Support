@@ -66,7 +66,11 @@ namespace vr::game_view
 				const auto base=pack(float(command[i])/127.f-stick[i]);
 				command[i]=base;
 				if(seed || !elapsed)continue;
-				const float step=rates[i]*float(elapsed)*.001f,sign=i?-1.f:1.f;
+				// Head pitch is positive up and head yaw positive left, while the
+				// wire is negative for up and for right (the stick polarity above).
+				// Headset testing with the opposite signs steered the missile away
+				// from the gaze on both axes.
+				const float step=rates[i]*float(elapsed)*.001f,sign=i?1.f:-1.f;
 				command[i]=pack(float(base)/127.f+sign*remaining_[i]/step);
 				const float delivered=sign*float(int(command[i])-int(base))/127.f*step;
 				remaining_[i]-=delivered;

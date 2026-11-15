@@ -83,15 +83,15 @@ inline void expect_native_game_view()
 		const std::array<float,2> rates{30,60};
 		require(remote.apply_control(command,{0,0,0},15,1,100,1000,rates,{0,0}) && command==std::array<std::int8_t,2>{},
 			"native remote axes enter at neutral without an artificial steering jump");
-		command={};require(remote.apply_control(command,{3,6,0},15,1,200,1100,rates,{0,0}) && command[0]==127 && command[1]==-127,
-			"HMD angular delivery keeps its independent pitch/yaw convention and native degree rates");
+		command={};require(remote.apply_control(command,{3,6,0},15,1,200,1100,rates,{0,0}) && command[0]==-127 && command[1]==127,
+			"looking up and left steers the missile up and left on the native wire, at native degree rates");
 		remote.record(1100);
 		const auto correction=remote.correction(15,1,1100,full_axis(3,6,0));
 		for(unsigned i=0;i<3;++i)for(unsigned j=0;j<3;++j)require(close(correction[i][j],i==j?1.f:0.f),
 			"native remote command delivery is removed from late camera correction exactly once");
 		for(int i=0;i<3;++i)
 		{
-			command={};require(remote.apply_control(command,{12,6,0},15,1,300+i*100,1200+i*100,rates,{0,0}) && command[0]==127,
+			command={};require(remote.apply_control(command,{12,6,0},15,1,300+i*100,1200+i*100,rates,{0,0}) && command[0]==-127,
 				"head motion beyond one native steering step remains pending instead of being discarded by byte saturation");
 		}
 		command={};remote.apply_control(command,{12,6,0},15,1,600,1500,rates,{0,0});

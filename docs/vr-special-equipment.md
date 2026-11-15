@@ -256,7 +256,9 @@ view's starting pitch, native clamps and mouse input. The normal linked-view
 branch uses native view angles; the missile branch uses its signed two-axis
 `usercmd` fields at +0x3E/+0x3F, as consumed by native remote-angle evaluation.
 Head angular changes are converted using the original pitch/yaw rate dvars and
-command duration. Motion beyond one command's range remains pending instead of
+command duration. Head and stick share one wire polarity (negative is up and
+right): looking up or right steers the missile up or right. Headset testing
+found the earlier head signs inverted on both axes. Motion beyond one command's range remains pending instead of
 being lost to byte saturation; pause, focus loss and recenter clear that motion.
 The look stick (right stick by default) adds continuous pitch/yaw in both modes,
 independent of walking snap-turn settings. Entry and a control-mode change
