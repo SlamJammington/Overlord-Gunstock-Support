@@ -833,7 +833,7 @@ namespace vr::gameplay::weapons::underbarrel
 			if (change == support_handoff::acquire)
 				changed = carry::acquire_support(item.id, offhand) || changed;
 			else if (change == support_handoff::release)
-				changed = carry::release_support(item.id) || changed;
+				changed = carry::release_support(item.id, "underbarrel module grip let go") || changed;
 		}
 		if (changed)
 			carry::publish_topology();

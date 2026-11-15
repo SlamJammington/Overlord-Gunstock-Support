@@ -33,6 +33,8 @@
 #include "grip_edges.hpp"
 #include "weapon_carry_motion.hpp"
 #include "support_retention.hpp"
+#include "support_journal.hpp"
+#include <cstdio>
 #include "physical_reload_runtime.hpp"
 #include "reload_item_runtime.hpp"
 #include "cylinder_runtime.hpp"
@@ -148,6 +150,11 @@ namespace vr::gameplay::weapons::carry
 		std::array<edge_record, 32> edge_history{};
 		std::size_t edge_cursor{};
 		unsigned deferred_mask{};
+		// Diagnostic journal state: why the next published support change happened.
+		const char* journal_cause{};
+		grip_edges journal_edges{};
+		unsigned journal_latched{}, journal_mechanical{}, journal_valid_hands{};
+		std::array<std::pair<identity, hand>, inventory::capacity> journal_supports{};
 		hand_motion_history motion_history;
 		const char* reason{"waiting for VR gameplay"};
 		interaction_context batch;
@@ -414,8 +421,50 @@ namespace vr::gameplay::weapons::carry
 			preferred = {};
 			return {};
 		}
+		void journal_support_changes()
+		{
+			const auto describe = [](const instance* item)
+			{
+				char text[256];
+				const auto module = item ? underbarrel::current(item->id) : underbarrel::presentation{};
+				const auto reload = item ? physical_reload::current(item->id) : physical_reload::presentation{};
+				std::snprintf(text, sizeof(text),
+				              "edges pressed/released/consumed/deferred=%u/%u/%u/%u latched=%u mechanical=%u "
+				              "valid_hands=%u rear=%d at=%d underbarrel owns/grip=%d/%d reload active/magazine_hand=%d/%d",
+				              journal_edges.pressed, journal_edges.released, journal_edges.consumed,
+				              journal_edges.deferred, journal_latched, journal_mechanical, journal_valid_hands,
+				              item ? int(item->owner.rear) : -1, item ? int(item->at) : -1, module.owns_support,
+				              int(module.grip), reload.active, int(reload.ammo.magazine_hand));
+				return std::string(text);
+			};
+			const char* why = journal_cause ? journal_cause : "untracked: selection, equip or reset";
+			for (const auto& seen : journal_supports)
+			{
+				if (!seen.first.weapon || !valid_hand(seen.second))
+					continue;
+				const auto* item = owned.find(seen.first);
+				if (!item || item->at != location::held || item->owner.support != seen.second)
+					support_journal::note("support-lost", seen.first, int(seen.second), why, describe(item));
+			}
+			std::size_t kept{};
+			std::array<std::pair<identity, hand>, inventory::capacity> supports_now{};
+			for (const auto& item : owned.instances())
+			{
+				if (!item.id.weapon || item.at != location::held || !valid_hand(item.owner.support))
+					continue;
+				bool known{};
+				for (const auto& seen : journal_supports)
+					known = known || (seen.first == item.id && seen.second == item.owner.support);
+				if (!known)
+					support_journal::note("support-gained", item.id, int(item.owner.support), "grip", describe(&item));
+				supports_now[kept++] = {item.id, item.owner.support};
+			}
+			journal_supports = supports_now;
+			journal_cause = nullptr;
+		}
 		void publish()
 		{
+			journal_support_changes();
 			const auto owner = projection();
 			if (owner.id())
 				native_ammunition::project(owner.id());
@@ -792,6 +841,12 @@ namespace vr::gameplay::weapons::carry
 			const auto toggle_owners = toggle_grip_owners(owned, toggle, mechanical_hands, latched_hands);
 			auto event = edges.consume(interaction_input, gameplay, now, toggle_owners);
 			event.released = released_with_latch(owned, event.released, latched_hands);
+			journal_edges = event;
+			journal_latched = latched_hands;
+			journal_mechanical = mechanical_hands;
+			journal_valid_hands = valid_hands;
+			if (event.released)
+				journal_cause = "Grip release event";
 			if (event.pressed || event.released || event.resumed || event.deferred != deferred_mask)
 			{
 				const unsigned down = (input.squeeze[0].down ? 1u : 0u) | (input.squeeze[1].down ? 2u : 0u);
@@ -1002,6 +1057,7 @@ namespace vr::gameplay::weapons::carry
 						support_locked || underbarrel::ordinary_support_allowed(held_pose, wrists[off], v.owner.support, true));
 					if (retention == support_retention::released)
 					{
+						journal_cause = "spatial release (hands too far or too close)";
 						const auto result = owned.release(
 						    v.id, 1u << off, location::absent, false, [](const instance&) { return false; });
 						ordinary_released = result.action == outcome::support_released || ordinary_released;
@@ -1310,10 +1366,11 @@ namespace vr::gameplay::weapons::carry
 		           ? std::span<const instance>{owned.instances()}
 		           : std::span<const instance>{};
 	}
-	bool release_support(identity id) noexcept
+	bool release_support(identity id, const char* why) noexcept
 	{
 		if (!scheduler::is_executing(scheduler::pipeline::server))
 			return false;
+		journal_cause = why;
 		const auto* v = owned.find(id);
 		if (!v || !valid_hand(v->owner.support))
 			return false;

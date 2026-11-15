@@ -488,7 +488,7 @@ namespace vr::gameplay::weapons::physical_reload
 			if (item.at != carry::location::held || !item.owner.can_fire() || !valid_hand(item.owner.support))
 				continue;
 			if (takes_carry_support(current(item.id), item.owner))
-				changed = carry::release_support(item.id) || changed;
+				changed = carry::release_support(item.id, "reload: support hand took the magazine") || changed;
 		}
 		if (changed)
 			carry::publish_topology();

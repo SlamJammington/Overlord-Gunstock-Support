@@ -25,7 +25,7 @@ namespace vr::gameplay::weapons::carry
 	unsigned world_use_hands() noexcept;
 	bool pickup(const interaction::target&,int hand);
 	std::span<const instance> interaction_instances() noexcept;
-	bool release_support(identity) noexcept;
+	bool release_support(identity, const char* why = "external release") noexcept;
 	bool acquire_support(identity,hand) noexcept;
 	bool interaction_hand_occupied(hand) noexcept;
 	void publish_topology() noexcept;

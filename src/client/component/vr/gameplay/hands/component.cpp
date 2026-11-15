@@ -10,6 +10,8 @@
 #include "../native_scripted_control.hpp"
 #include "../mounted_turret.hpp"
 #include "../weapon_carry_runtime.hpp"
+#include "../support_journal.hpp"
+#include <cstdio>
 #include "../weapon_carry_pose.hpp"
 #include "../../controller_input.hpp"
 #include "../../settings.hpp"
@@ -1308,6 +1310,34 @@ namespace vr::gameplay::hands
 					reason = "profile grip/pose contract rejected";
 					++skipped;
 					return;
+				}
+				{
+					// Diagnostic: the rendered support hand left a gun that still owns it.
+					static weapons::weapon_identity journal_seen_weapon{};
+					static bool journal_was_attached{};
+					const bool journal_owned = pose_owner.can_fire() && vr::valid_hand(pose_owner.support);
+					const bool journal_attached = journal_owned && probe.grip.support != vr::hand::none;
+					if (journal_owned && journal_seen_weapon == pose_owner.id() &&
+					    journal_attached != journal_was_attached)
+					{
+						const int journal_rear = int(pose_owner.rear), journal_front = 1 - journal_rear;
+						char journal_text[200];
+						std::snprintf(journal_text, sizeof(journal_text),
+						              "gameplay=%d tracking_ready rear/front=%d/%d hand_available=%d blend=%.2f",
+						              int(gameplay),
+						              int(controller_input::interaction_ready(input.grip[journal_rear]) &&
+						                  controller_input::interaction_ready(input.aim[journal_rear])),
+						              int(controller_input::interaction_ready(input.grip[journal_front]) &&
+						                  controller_input::interaction_ready(input.aim[journal_front])),
+						              int(weapons::carry::hand_available(vr::hand(journal_front))),
+						              double(probe.grip.blend));
+						weapons::support_journal::note(journal_attached ? "visual-attach" : "visual-detach",
+						                               pose_owner.id(), int(pose_owner.support),
+						                               "rendered hand state changed while support is still owned",
+						                               journal_text);
+					}
+					journal_seen_weapon = pose_owner.id();
+					journal_was_attached = journal_attached;
 				}
 				if (gameplay && !selection_transition)
 					weapons::recoil::apply_to_pose(
